@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.8"
 license = {text = "MIT"}
 authors = [
-    {name = "Arpit", email = "your-email@example.com"}
+    {name = "Arpit", email = "arpit.thukral@gmail.com"}
 ]
 keywords = ["fastapi", "metrics", "observability", "sqlite", "monitoring"]
 classifiers = [
@@ -40,6 +40,9 @@ dev = [
     "black>=23.0.0",
     "ruff>=0.0.280",
 ]
+
+[project.scripts]
+fastapi-metrics-setup = "fastapi_metrics.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/arpit0515/fastapi-metrics"
