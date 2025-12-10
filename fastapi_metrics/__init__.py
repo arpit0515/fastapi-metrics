@@ -1,9 +1,9 @@
 """
 FastAPI Metrics - Zero-config metrics for FastAPI apps
-Perfect for solo developers and MVPs on single-instance deployments.
+Supports SQLite (single-instance) and Redis (multi-instance/K8s) storage.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 from .core import Metrics
 from .storage.base import StorageBackend
