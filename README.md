@@ -114,6 +114,12 @@ fastapi-metrics/
 - [ ] Uptime tracking
 - [ ] System metrics endpoint
 
+### 2.3 Additional
+- [ ]Make Redis storage first-class (not optional)
+- [ ] Add proper K8s health checks (Phase 2 should be Phase 1)
+- [ ] Add deployment examples for multi-instance setups
+- [ ] Position as "lightweight alternative to Prometheus that scales"
+
 **Deliverable**: Production-ready health checks for Kubernetes
 
 ---
