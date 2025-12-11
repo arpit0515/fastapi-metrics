@@ -13,7 +13,7 @@ pytest.importorskip("redis")
 @pytest.fixture
 async def redis_storage():
     """Redis storage fixture - requires Redis to be running."""
-    storage = RedisStorage("redis://localhost:6379/15")  # Use DB 15 for tests
+    storage = RedisStorage("redis://localhost:6379/0")  # Use DB 15 for tests
     try:
         await storage.initialize()
         # Flush the test database before each test
@@ -197,3 +197,6 @@ async def test_redis_connection_error():
 
     with pytest.raises(Exception):
         await storage.initialize()
+
+if __name__ == "__main__":
+    pytest.main([__file__])

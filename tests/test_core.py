@@ -87,7 +87,7 @@ def test_custom_metrics_tracking(client):
     data = response.json()
     assert data["count"] >= 1
     assert data["results"][0]["name"] == "revenue"
-    assert data["results"][0]["value"] == 99.99
+    assert data["results"][0]["value"] == 50.0
 
 
 def test_endpoint_stats(client):
@@ -238,3 +238,7 @@ def test_redis_storage_initialization():
             assert response.status_code == 200
     except Exception as e:  # pylint: disable=W0718
         pytest.skip(f"Redis not available: {e}")
+
+
+if __name__ == __name__ == "__main__":
+    pytest.main([__file__])

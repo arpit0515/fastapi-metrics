@@ -228,3 +228,7 @@ async def test_grouped_query(memory_store):
     assert len(results) == 3
     assert "count" in results[0]
     assert "avg_latency_ms" in results[0]
+
+
+if __name__ == "__main__":
+    pytest.main([__file__])
