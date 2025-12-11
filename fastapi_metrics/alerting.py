@@ -54,6 +54,13 @@ class AlertManager:
         self._running = False
         self._task = None
     
+    def __del__(self):
+        """Ensure background task is stopped on cleanup."""
+        if self._running and self._task:
+            # Can't await in destructor, so just cancel
+            self._task.cancel()
+            self._running = False
+    
     def add_alert(self, alert: Alert):
         """Register an alert."""
         self.alerts[alert.name] = alert
@@ -107,11 +114,10 @@ class AlertManager:
         # Send webhook
         if self.webhook_url and httpx:
             try:
-                async with httpx.AsyncClient() as client:
+                async with httpx.AsyncClient(timeout=5.0) as client:
                     await client.post(
                         self.webhook_url,
                         json=message,
-                        timeout=5.0,
                     )
             except Exception as e:
                 # Log error but don't fail

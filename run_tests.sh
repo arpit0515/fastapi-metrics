@@ -7,7 +7,7 @@ echo ""
 
 # Run Phase 1 tests (core functionality)
 echo "Running Phase 1 tests (Core, Storage, Middleware)..."
-pytest tests/test_storage.py tests/test_core.py -v
+pytest tests/test_storage.py tests/test_core.py -v --tb=short
 
 if [ $? -ne 0 ]; then
     echo "❌ Phase 1 tests failed!"
@@ -20,7 +20,7 @@ echo ""
 
 # Run Phase 2 tests (health checks)
 echo "Running Phase 2 tests (Health Checks)..."
-pytest tests/test_health.py -v
+pytest tests/test_health.py -v --tb=short
 
 if [ $? -ne 0 ]; then
     echo "❌ Phase 2 tests failed!"
@@ -33,7 +33,7 @@ echo ""
 
 # Run Phase 3 tests (advanced features)
 echo "Running Phase 3 tests (LLM, System, Prometheus, Alerts)..."
-pytest tests/test_phase3.py -v
+pytest tests/test_phase3.py -v --tb=short
 
 if [ $? -ne 0 ]; then
     echo "❌ Phase 3 tests failed!"

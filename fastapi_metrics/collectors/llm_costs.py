@@ -37,10 +37,14 @@ class LLMCostTracker:
         output_tokens: int,
     ) -> float:
         """Calculate OpenAI API cost."""
-        # Normalize model name
-        model_key = model
-        for key in OPENAI_PRICING.keys():
-            if key in model.lower():
+        # Normalize model name - check longest matches first to avoid partial matches
+        model_lower = model.lower()
+        model_key = model_lower
+        
+        # Sort by length (longest first) to match specific models before generic ones
+        sorted_keys = sorted(OPENAI_PRICING.keys(), key=len, reverse=True)
+        for key in sorted_keys:
+            if key in model_lower:
                 model_key = key
                 break
         
@@ -61,10 +65,14 @@ class LLMCostTracker:
         output_tokens: int,
     ) -> float:
         """Calculate Anthropic API cost."""
-        # Normalize model name
-        model_key = model
-        for key in ANTHROPIC_PRICING.keys():
-            if key in model.lower():
+        # Normalize model name - check longest matches first to avoid partial matches
+        model_lower = model.lower()
+        model_key = model_lower
+        
+        # Sort by length (longest first) to match specific models before generic ones
+        sorted_keys = sorted(ANTHROPIC_PRICING.keys(), key=len, reverse=True)
+        for key in sorted_keys:
+            if key in model_lower:
                 model_key = key
                 break
         
