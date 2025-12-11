@@ -41,7 +41,7 @@ def client_phase3(app_with_phase3):
 def test_llm_cost_tracker_openai():
     """Test OpenAI cost calculation."""
     metrics = Metrics(FastAPI(), storage="memory://")
-    tracker = LLMCostTracker.llm_costs
+    tracker = metrics.llm_costs
     
     # GPT-4o: $2.5/1M input, $10/1M output
     cost = tracker.calculate_openai_cost("gpt-4o", 1000, 2000)

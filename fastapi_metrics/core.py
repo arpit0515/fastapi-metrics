@@ -9,6 +9,10 @@ from .storage.sqlite import SQLiteStorage
 from .middleware import MetricsMiddleware
 from .health.endpoints import HealthManager
 from .health.checks import DiskSpaceCheck, MemoryCheck, DatabaseCheck
+from .collectors.llm_costs import LLMCostTracker
+from .collectors.system import SystemMetricsCollector
+from .exporters.prometheus import PrometheusExporter
+from .alerting import AlertManager
 
 
 class Metrics:
@@ -21,6 +25,8 @@ class Metrics:
         retention_hours: int = 24,
         enable_cleanup: bool = True,
         enable_health_checks: bool = False,
+        enable_system_metrics: bool = False,
+        alert_webhook_url: Optional[str] = None,
     ):
         """
         Initialize metrics for a FastAPI application.
@@ -31,12 +37,19 @@ class Metrics:
             retention_hours: How long to keep metrics data (hours)
             enable_cleanup: Whether to enable automatic cleanup of old data
             enable_health_checks: Enable Kubernetes health check endpoints
+            enable_system_metrics: Enable system metrics collection (CPU, memory, disk)
+            alert_webhook_url: Optional webhook URL for alert notifications
         """
         self.app = app
         self.retention_hours = retention_hours
         self.enable_cleanup = enable_cleanup
         self._active_requests = 0
         self.health_manager = HealthManager() if enable_health_checks else None
+        
+        # Initialize Phase 3 components
+        self.llm_costs = LLMCostTracker(self)
+        self.system_metrics = SystemMetricsCollector(self) if enable_system_metrics else None
+        self.alert_manager = AlertManager(self, webhook_url=alert_webhook_url)
         
         # Initialize storage backend
         if isinstance(storage, str):
@@ -186,6 +199,59 @@ class Metrics:
                     status_code=status_code,
                     media_type="application/json"
                 )
+        
+        # Phase 3: System metrics endpoints (if enabled)
+        if self.system_metrics:
+            @self.app.get("/metrics/system")
+            async def get_system_metrics():
+                """Get current system metrics."""
+                return {
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "cpu_percent": self.system_metrics.get_cpu_percent(),
+                    "memory": self.system_metrics.get_memory_stats(),
+                    "disk": self.system_metrics.get_disk_stats(),
+                }
+        
+        # Phase 3: LLM Costs endpoint
+        @self.app.get("/metrics/costs")
+        async def get_llm_costs(hours: int = 24):
+            """Get LLM API costs."""
+            now = datetime.utcnow()
+            from_time = now - timedelta(hours=hours)
+            
+            costs = await self.storage.query_custom_metrics(
+                from_time=from_time,
+                to_time=now,
+                name="llm_cost",
+            )
+            
+            total_cost = sum(c.get("value", 0) for c in costs)
+            by_provider = {}
+            for cost in costs:
+                provider = cost.get("labels", {}).get("provider", "unknown")
+                if provider not in by_provider:
+                    by_provider[provider] = 0
+                by_provider[provider] += cost.get("value", 0)
+            
+            return {
+                "total_cost": total_cost,
+                "by_provider": by_provider,
+                "count": len(costs),
+                "period_hours": hours,
+            }
+        
+        # Phase 3: Prometheus export endpoint
+        @self.app.get("/metrics/export/prometheus")
+        async def export_prometheus(hours: int = 1):
+            """Export metrics in Prometheus format."""
+            exporter = PrometheusExporter(self.storage)
+            output = await exporter.export_http_metrics(hours=hours)
+            
+            from fastapi import Response
+            return Response(
+                content=output,
+                media_type="text/plain; version=0.0.4",
+            )
 
     async def _store_http_metric(
         self,
