@@ -261,14 +261,17 @@ class RedisStorage(StorageBackend):
         """Get aggregated statistics per endpoint."""
         # Get all endpoint keys
         endpoint_keys = []
-        cursor = 0
+        cursor = "0"
+        max_iterations = 100  # Safety limit
+        iterations = 0
         
-        while True:
+        while iterations < max_iterations:
+            iterations += 1
             cursor, keys = await self.client.scan(
                 cursor, match="http:endpoint:*", count=100
             )
             endpoint_keys.extend(keys)
-            if cursor == 0:
+            if cursor == "0" or cursor == 0:
                 break
         
         stats = []
