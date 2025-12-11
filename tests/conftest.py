@@ -1,9 +1,11 @@
-import pytest
-import asyncio
-import sys
-import threading
-import atexit
+"""
+Docstring for tests.conftest
+"""
 import os
+import sys
+import time
+import asyncio
+import pytest
 
 
 @pytest.fixture(scope="session")
@@ -26,28 +28,26 @@ def event_loop():
         # Give tasks time to be cancelled
         if pending:
             loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
-    except Exception:
+    except Exception:  # pylint: disable=W0718
         pass
 
     # Shutdown the default executor
     try:
-        executor = loop._default_executor
+        executor = loop._default_executor #pylint: disable=protected-access
         if executor:
             executor.shutdown(wait=False)
-    except Exception:
+    except Exception:  # pylint: disable=W0718
         pass
 
     loop.close()
 
 
 @pytest.fixture(scope="session", autouse=True)
-def cleanup_all(request):
+def cleanup_all():
     """Comprehensive cleanup after all tests."""
     yield
 
     # Give threads a moment to shut down gracefully
-    import time
-
     time.sleep(0.2)
 
     # Close any remaining event loops
@@ -55,7 +55,7 @@ def cleanup_all(request):
         loop = asyncio.get_event_loop()
         if loop and not loop.is_closed():
             loop.close()
-    except Exception:
+    except Exception:  # pylint: disable=W0718
         pass
 
     # Force exit to kill daemon threads (httpx, etc)

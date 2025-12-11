@@ -1,9 +1,9 @@
 """Health check implementations for system resources and databases."""
 
+import datetime
 from abc import ABC, abstractmethod
 from typing import Dict, Any
 import psutil
-from pathlib import Path
 
 
 class HealthCheck(ABC):
@@ -16,15 +16,13 @@ class HealthCheck(ABC):
 
         Returns dict with 'status' (ok/error) and optional details.
         """
-        pass
+        return 1
 
 
 class DiskSpaceCheck(HealthCheck):
     """Check disk space availability."""
 
-    def __init__(
-        self, path: str = "/", min_free_gb: float = 1.0
-    ) -> None:
+    def __init__(self, path: str = "/", min_free_gb: float = 1.0) -> None:
         self.path = path
         self.min_free_bytes = min_free_gb * 1024 * 1024 * 1024
 
@@ -89,21 +87,16 @@ class DatabaseCheck(HealthCheck):
         """Check database connectivity."""
         try:
             # Try a simple operation
-            from datetime import datetime, timedelta
-
-            now = datetime.utcnow()
+            now = datetime.datetime.now(datetime.timezone.utc)
 
             await self.storage.query_http_metrics(
-                from_time=now - timedelta(seconds=1),
+                from_time=now - datetime.timedelta(seconds=1),
                 to_time=now,
             )
 
             return {"status": "ok", "message": "Database connected"}
         except Exception as e:  # pylint: disable=broad-except
-            return {
-                "status": "error",
-                "message": f"Database error: {str(e)}"
-            }
+            return {"status": "error", "message": f"Database error: {str(e)}"}
 
 
 class RedisCheck(HealthCheck):

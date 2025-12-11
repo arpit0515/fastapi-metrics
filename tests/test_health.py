@@ -1,3 +1,7 @@
+"""
+Docstring for tests.test_health
+"""
+
 import pytest
 from fastapi_metrics.health.checks import (
     DiskSpaceCheck,
@@ -53,8 +57,19 @@ async def test_database_check_failure():
 
     # Create a mock storage that will fail
     class FailingStorage:
+        """
+        Docstring for FailingStorage
+        """
+
         async def query_http_metrics(self, from_time, to_time):
-            raise Exception("Database connection failed")
+            """
+            Docstring for query_http_metrics
+
+            :param self: Description
+            :param from_time: Description
+            :param to_time: Description
+            """
+            raise Exception("Database connection failed")  # pylint: disable=W0719
 
     storage = FailingStorage()
     check = DatabaseCheck(storage)
@@ -114,8 +129,19 @@ async def test_health_manager_readiness_failure():
 
     # Add a check that will fail
     class FailingStorage:
+        """
+        Docstring for FailingStorage
+        """
+
         async def query_http_metrics(self, from_time, to_time):
-            raise Exception("Connection failed")
+            """
+            Docstring for query_http_metrics
+
+            :param self: Description
+            :param from_time: Description
+            :param to_time: Description
+            """
+            raise Exception("Connection failed")  # pylint: disable=W0719
 
     storage = FailingStorage()
     manager.add_check("database", DatabaseCheck(storage))

@@ -10,6 +10,7 @@ from datetime import datetime
 
 
 def print_header():
+    """Print CLI header."""
     print("\n" + "=" * 70)
     print("  FastAPI Metrics - Interactive Setup Wizard")
     print("  Version 0.3.0")
@@ -173,7 +174,10 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M")}
 
 ## Your Configuration
 
-- **Deployment**: {["Single Server (SQLite)", "Development (Memory)", "Kubernetes (Redis)"][config["storage"]-1]}
+- **Deployment**: {
+    ["Single Server (SQLite)", "Development (Memory)", "Kubernetes (Redis)"]
+    [config["storage"]-1]
+    }
 - **Data Retention**: {config["retention"]} hours
 - **Health Checks**: {"✓ Enabled" if config["enable_health"] else "✗ Disabled"}
 - **System Metrics**: {"✓ Enabled" if config["enable_system"] else "✗ Disabled"}
@@ -458,7 +462,7 @@ def main():
     code_file = None
     if save_code:
         filename = ask_question("Code filename", default=f"{config['app_name']}_metrics.py")
-        with open(filename, "w") as f:
+        with open(filename, "w", encoding="utf8") as f:
             f.write(setup_code)
         code_file = filename
         print(f"\n✓ Code saved to {filename}")
@@ -471,7 +475,7 @@ def main():
     if save_docs:
         doc = generate_documentation(config)
         doc_filename = ask_question("Documentation filename", default="METRICS_SETUP.md")
-        with open(doc_filename, "w") as f:
+        with open(doc_filename, "w", encoding="utf8") as f:
             f.write(doc)
         doc_file = doc_filename
         print(f"\n✓ Documentation saved to {doc_filename}")
@@ -487,7 +491,7 @@ def main():
         },
     }
 
-    with open("metrics_config.json", "w") as f:
+    with open("metrics_config.json", "w", encoding="utf8") as f:
         json.dump(config_data, f, indent=2)
 
     # Summary
@@ -502,7 +506,10 @@ Files created:
   ✓ metrics_config.json - Configuration backup
 
 Next steps:
-  1. Install: {f"pip install fastapi-metrics{'[redis,alerts]' if config['storage'] == 3 or config['enable_alerts'] else ''}" if config['storage'] == 3 or config['enable_alerts'] else "pip install fastapi-metrics"}
+  1. Install: {
+      f"""pip install fastapi-metrics{'[redis,alerts]'
+    if config['storage'] == 3 or config['enable_alerts'] else ''}"""
+      if config['storage'] == 3 or config['enable_alerts'] else "pip install fastapi-metrics"}
   2. Copy generated code to your app
   3. Run: uvicorn {config['app_name']}:app --reload
   4. Test: curl http://localhost:8000/metrics
@@ -520,6 +527,6 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("\n\nSetup cancelled.")
         sys.exit(0)
-    except Exception as e:
+    except Exception as e: #pylint: disable=broad-except
         print(f"\n\n❌ Error: {e}")
         sys.exit(1)

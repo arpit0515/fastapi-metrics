@@ -1,7 +1,7 @@
 """Prometheus export format."""
 
-from typing import Any, Dict
-from datetime import datetime, timedelta
+from typing import Any
+import datetime
 
 
 class PrometheusExporter:
@@ -12,8 +12,8 @@ class PrometheusExporter:
 
     async def export_http_metrics(self, hours: int = 1) -> str:
         """Export HTTP metrics in Prometheus format."""
-        now = datetime.utcnow()
-        from_time = now - timedelta(hours=hours)
+        now = datetime.datetime.now(datetime.timezone.utc)
+        _ = now - datetime.timedelta(hours=hours)
 
         # Get endpoint stats
         stats = await self.storage.get_endpoint_stats()
@@ -33,9 +33,7 @@ class PrometheusExporter:
 
         # Latency
         lines.append("")
-        lines.append(
-            "# HELP http_request_duration_ms HTTP request duration in ms"
-        )
+        lines.append("# HELP http_request_duration_ms HTTP request duration in ms")
         lines.append("# TYPE http_request_duration_ms gauge")
         for stat in stats:
             endpoint = stat["endpoint"].replace('"', '\\"')
@@ -60,8 +58,8 @@ class PrometheusExporter:
 
     async def export_custom_metrics(self, hours: int = 1) -> str:
         """Export custom metrics in Prometheus format."""
-        now = datetime.utcnow()
-        from_time = now - timedelta(hours=hours)
+        now = datetime.datetime.now(datetime.timezone.utc)
+        from_time = now - datetime.timedelta(hours=hours)
 
         # Get custom metrics
         metrics = await self.storage.query_custom_metrics(

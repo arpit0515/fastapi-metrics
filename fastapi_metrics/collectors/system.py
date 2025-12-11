@@ -1,8 +1,7 @@
 """System metrics collection (CPU, Memory, Disk)."""
 
-import psutil
 from typing import Any, Dict
-from datetime import datetime
+import psutil
 
 
 class SystemMetricsCollector:

@@ -1,3 +1,4 @@
+"""In-memory storage backend for FastAPI Metrics."""
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 from collections import defaultdict
@@ -128,7 +129,7 @@ class MemoryStorage(StorageBackend):
                 {
                     "timestamp": k,
                     "count": len(v),
-                    "sum": sum([x["value"] for x in v]),
+                    "sum": sum(x["value"] for x in v),
                     "avg": statistics.mean([x["value"] for x in v]),
                 }
                 for k, v in sorted(grouped.items())

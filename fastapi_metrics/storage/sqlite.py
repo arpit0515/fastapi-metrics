@@ -1,8 +1,9 @@
-import aiosqlite
+"""SQLite storage backend for FastAPI Metrics."""
+import datetime
 import json
-from datetime import datetime
 from typing import Any, Dict, List, Optional
 from pathlib import Path
+import aiosqlite
 
 from .base import StorageBackend
 
@@ -178,7 +179,7 @@ class SQLiteStorage(StorageBackend):
 
         return [
             {
-                "timestamp": datetime.fromtimestamp(row[0]),
+                "timestamp": datetime.datetime.fromtimestamp(row[0]),
                 "endpoint": row[1],
                 "method": row[2],
                 "status_code": row[3],
@@ -244,7 +245,7 @@ class SQLiteStorage(StorageBackend):
 
         return [
             {
-                "timestamp": datetime.fromtimestamp(row[0]),
+                "timestamp": datetime.datetime.fromtimestamp(row[0]),
                 "name": row[1],
                 "value": row[2],
                 "labels": json.loads(row[3]) if row[3] else {},
@@ -285,7 +286,7 @@ class SQLiteStorage(StorageBackend):
         ]
 
     async def cleanup_old_data(self, before: datetime) -> int:
-        """Remove data older than specified datetime."""
+        """Remove data older than specified datetime.datetime."""
         timestamp = before.timestamp()
 
         cursor = await self.conn.execute(

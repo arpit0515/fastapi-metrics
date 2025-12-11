@@ -11,12 +11,12 @@ class StorageBackend(ABC):
     @abstractmethod
     async def initialize(self) -> None:
         """Initialize storage (create tables, connections, etc)."""
-        pass
+        return 1
 
     @abstractmethod
     async def close(self) -> None:
         """Close storage connections and cleanup."""
-        pass
+        return 1
 
     @abstractmethod
     async def store_http_metric(
@@ -29,7 +29,7 @@ class StorageBackend(ABC):
         labels: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Store HTTP request metric."""
-        pass
+        return 1
 
     @abstractmethod
     async def store_custom_metric(
@@ -40,7 +40,7 @@ class StorageBackend(ABC):
         labels: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Store custom business metric."""
-        pass
+        return 1
 
     @abstractmethod
     async def query_http_metrics(
@@ -52,7 +52,7 @@ class StorageBackend(ABC):
         group_by: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """Query HTTP metrics within time range."""
-        pass
+        return 1
 
     @abstractmethod
     async def query_custom_metrics(
@@ -63,14 +63,14 @@ class StorageBackend(ABC):
         group_by: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """Query custom metrics within time range."""
-        pass
+        return 1
 
     @abstractmethod
     async def get_endpoint_stats(self) -> List[Dict[str, Any]]:
         """Get aggregated statistics per endpoint."""
-        pass
+        return 1
 
     @abstractmethod
     async def cleanup_old_data(self, before: datetime) -> int:
         """Remove data older than specified datetime. Returns count of deleted records."""
-        pass
+        return 1

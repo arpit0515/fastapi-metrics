@@ -1,7 +1,6 @@
 """LLM API cost tracking for OpenAI and Anthropic."""
 
-from typing import Any, Dict, Optional
-from datetime import datetime
+from typing import Any
 
 
 # Pricing per 1M tokens (as of Dec 2024)

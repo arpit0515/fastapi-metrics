@@ -1,16 +1,18 @@
 """Core metrics functionality for FastAPI applications."""
 
 from datetime import datetime, timedelta
-from typing import Any, Dict, Optional, Union
-from fastapi import FastAPI
+from typing import Any, Optional, Union
+import asyncio
 import json
+from fastapi import FastAPI, Response
 
 from .storage.base import StorageBackend
+from .storage.redis import RedisStorage
 from .storage.memory import MemoryStorage
 from .storage.sqlite import SQLiteStorage
 from .middleware import MetricsMiddleware
 from .health.endpoints import HealthManager
-from .health.checks import DiskSpaceCheck, MemoryCheck, DatabaseCheck
+from .health.checks import RedisCheck, DiskSpaceCheck, MemoryCheck, DatabaseCheck
 from .collectors.llm_costs import LLMCostTracker
 from .collectors.system import SystemMetricsCollector
 from .exporters.prometheus import PrometheusExporter
@@ -63,8 +65,6 @@ class Metrics:
                 db_path = storage.replace("sqlite://", "")
                 self.storage = SQLiteStorage(db_path)
             elif storage.startswith("redis://"):
-                from .storage.redis import RedisStorage
-
                 self.storage = RedisStorage(storage)
             else:
                 raise ValueError(f"Unknown storage backend: {storage}")
@@ -84,8 +84,6 @@ class Metrics:
 
                 # Add Redis check if using Redis storage
                 if storage.startswith("redis://"):
-                    from .health.checks import RedisCheck
-
                     self.health_manager.add_check("redis", RedisCheck(self.storage.client))
 
         @app.on_event("shutdown")
@@ -199,8 +197,6 @@ class Metrics:
                 """Kubernetes readiness probe."""
                 result = await self.health_manager.readiness()
                 # Return 503 if not ready
-                from fastapi import Response
-
                 status_code = 200 if result["status"] == "ok" else 503
                 return Response(
                     content=json.dumps(result),
@@ -255,9 +251,6 @@ class Metrics:
             """Export metrics in Prometheus format."""
             exporter = PrometheusExporter(self.storage)
             output = await exporter.export_http_metrics(hours=hours)
-
-            from fastapi import Response
-
             return Response(
                 content=output,
                 media_type="text/plain; version=0.0.4",
@@ -310,8 +303,6 @@ class Metrics:
         Synchronous wrapper for track() - for use in non-async contexts.
         Note: This creates a new event loop. Use async track() when possible.
         """
-        import asyncio
-
         try:
             loop = asyncio.get_event_loop()
         except RuntimeError:

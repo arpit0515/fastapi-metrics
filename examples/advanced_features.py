@@ -2,7 +2,7 @@
 Advanced features demo - LLM costs, system metrics, alerts, Prometheus export
 """
 
-import os
+import uvicorn
 from fastapi import FastAPI
 from fastapi_metrics import Metrics
 from fastapi_metrics.alerting import Alert
@@ -46,11 +46,12 @@ if metrics.alert_manager:
 
 @app.get("/")
 async def root():
+    """Root endpoint."""
     return {"message": "Advanced Metrics Demo"}
 
 
 @app.post("/api/chat")
-async def chat(prompt: str):
+async def chat():
     """Example: Track LLM API usage."""
 
     # Your OpenAI call here...
@@ -69,7 +70,7 @@ async def chat(prompt: str):
 
 
 @app.post("/api/claude")
-async def claude_chat(prompt: str):
+async def claude_chat():
     """Example: Track Anthropic API usage."""
 
     # Your Anthropic call here...
@@ -103,6 +104,4 @@ async def collect_system():
 # GET /health, /health/live, /health/ready - Health checks
 
 if __name__ == "__main__":
-    import uvicorn
-
     uvicorn.run(app, host="0.0.0.0", port=8000)

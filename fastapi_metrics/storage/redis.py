@@ -1,3 +1,5 @@
+""""Redis storage backend for FastAPI Metrics."""
+from collections import defaultdict
 import json
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -17,11 +19,11 @@ class RedisStorage(StorageBackend):
     def __init__(self, redis_url: str = "redis://localhost:6379/0"):
         if redis is None:
             raise ImportError(
-                "Redis support requires 'redis' package. " "Install with: pip install redis"
+                "Redis support requires 'redis' package. Install with: pip install redis"
             )
 
         self.redis_url = redis_url
-        self.client: Optional[redis.Redis] = None
+        self.client: Optional[Any] | None = None
 
         # Parse URL for connection
         parsed = urlparse(redis_url)
@@ -168,8 +170,6 @@ class RedisStorage(StorageBackend):
 
         # Group by hour if requested
         if group_by == "hour":
-            from collections import defaultdict
-
             grouped = defaultdict(list)
 
             for m in metrics:
@@ -237,8 +237,6 @@ class RedisStorage(StorageBackend):
 
         # Group by hour
         if group_by == "hour":
-            from collections import defaultdict
-
             grouped = defaultdict(list)
 
             for m in metrics:
@@ -270,7 +268,7 @@ class RedisStorage(StorageBackend):
             iterations += 1
             cursor, keys = await self.client.scan(cursor, match="http:endpoint:*", count=100)
             endpoint_keys.extend(keys)
-            if cursor == "0" or cursor == 0:
+            if cursor in ("0", 0):
                 break
 
         stats = []

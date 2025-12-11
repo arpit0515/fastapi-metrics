@@ -3,8 +3,7 @@
 import asyncio
 import logging
 from typing import Optional, Dict, Any
-from datetime import datetime, timedelta
-import json
+import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -36,13 +35,13 @@ class Alert:
         """Check if alert should trigger."""
         if self.comparison == ">":
             return value > self.threshold
-        elif self.comparison == "<":
+        if self.comparison == "<":
             return value < self.threshold
-        elif self.comparison == ">=":
+        if self.comparison == ">=":
             return value >= self.threshold
-        elif self.comparison == "<=":
+        if self.comparison == "<=":
             return value <= self.threshold
-        elif self.comparison == "==":
+        if self.comparison == "==":
             return value == self.threshold
         return False
 
@@ -50,9 +49,7 @@ class Alert:
 class AlertManager:
     """Manage alerts and notifications."""
 
-    def __init__(
-        self, metrics_instance: Any, webhook_url: Optional[str] = None
-    ) -> None:
+    def __init__(self, metrics_instance: Any, webhook_url: Optional[str] = None) -> None:
         self.metrics = metrics_instance
         self.webhook_url = webhook_url
         self.alerts: Dict[str, Alert] = {}
@@ -77,7 +74,7 @@ class AlertManager:
 
     async def check_alerts(self):
         """Check all alerts against current metrics."""
-        now = datetime.utcnow()
+        now = datetime.datetime.now(datetime.timezone.utc)
 
         for alert in self.alerts.values():
             # Skip if recently triggered (avoid spam)
@@ -87,7 +84,7 @@ class AlertManager:
                     continue
 
             # Query metric
-            from_time = now - timedelta(minutes=alert.window_minutes)
+            from_time = now - datetime.timedelta(minutes=alert.window_minutes)
             metrics = await self.metrics.storage.query_custom_metrics(
                 from_time=from_time,
                 to_time=now,
@@ -113,7 +110,7 @@ class AlertManager:
             "value": value,
             "threshold": alert.threshold,
             "comparison": alert.comparison,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         }
 
         # Send webhook

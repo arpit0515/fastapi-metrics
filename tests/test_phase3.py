@@ -1,12 +1,10 @@
 """Tests for Phase 3 features: LLM costs, system metrics, Prometheus export, alerting."""
 
+import datetime
 import pytest
-from datetime import datetime, timedelta
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from fastapi_metrics import Metrics, Alert
-from fastapi_metrics.collectors.llm_costs import LLMCostTracker
-from fastapi_metrics.collectors.system import SystemMetricsCollector
 from fastapi_metrics.exporters.prometheus import PrometheusExporter
 from fastapi_metrics.alerting import AlertManager
 from fastapi_metrics.storage.memory import MemoryStorage
@@ -32,8 +30,9 @@ def app_with_phase3():
 
 
 @pytest.fixture
-def client_phase3(app_with_phase3):
-    app, metrics = app_with_phase3
+def client_phase3(in_app_with_phase3):
+    """Test client for app with Phase 3 features."""
+    app, _ = in_app_with_phase3
     return TestClient(app)
 
 
@@ -77,10 +76,10 @@ async def test_track_openai_call():
     )
 
     # Check metrics were stored
-    now = datetime.utcnow()
+    now = datetime.datetime.now(datetime.timezone.utc)
     costs = await storage.query_custom_metrics(
-        from_time=now - timedelta(minutes=1),
-        to_time=now + timedelta(minutes=1),
+        from_time=now - datetime.timedelta(minutes=1),
+        to_time=now + datetime.timedelta(minutes=1),
         name="llm_cost",
     )
 
@@ -105,10 +104,10 @@ async def test_track_anthropic_call():
     )
 
     # Check metrics were stored
-    now = datetime.utcnow()
+    now = datetime.datetime.now(datetime.timezone.utc)
     costs = await storage.query_custom_metrics(
-        from_time=now - timedelta(minutes=1),
-        to_time=now + timedelta(minutes=1),
+        from_time=now - datetime.timedelta(minutes=1),
+        to_time=now + datetime.timedelta(minutes=1),
         name="llm_cost",
     )
 
@@ -152,19 +151,19 @@ async def test_system_metrics_tracking():
     await metrics.system_metrics.collect_and_track()
 
     # Check metrics were stored
-    now = datetime.utcnow()
+    now = datetime.datetime.now(datetime.timezone.utc)
     cpu_metrics = await storage.query_custom_metrics(
-        from_time=now - timedelta(minutes=1),
-        to_time=now + timedelta(minutes=1),
+        from_time=now - datetime.timedelta(minutes=1),
+        to_time=now + datetime.timedelta(minutes=1),
         name="system_cpu_percent",
     )
 
     assert len(cpu_metrics) >= 1
 
 
-def test_system_metrics_endpoint(client_phase3):
+def test_system_metrics_endpoint(in_client_phase3):
     """Test /metrics/system endpoint."""
-    response = client_phase3.get("/metrics/system")
+    response = in_client_phase3.get("/metrics/system")
     assert response.status_code == 200
     data = response.json()
 
@@ -181,7 +180,7 @@ async def test_prometheus_exporter():
     await storage.initialize()
 
     # Add some test data
-    now = datetime.utcnow()
+    now = datetime.datetime.now(datetime.timezone.utc)
     await storage.store_http_metric(
         timestamp=now,
         endpoint="/api/test",
@@ -199,9 +198,9 @@ async def test_prometheus_exporter():
     assert 'endpoint="/api/test"' in output
 
 
-def test_prometheus_export_endpoint(client_phase3):
+def test_prometheus_export_endpoint(in_client_phase3):
     """Test /metrics/export/prometheus endpoint."""
-    response = client_phase3.get("/metrics/export/prometheus")
+    response = in_client_phase3.get("/metrics/export/prometheus")
     assert response.status_code == 200
 
     # Should be plain text
@@ -311,25 +310,25 @@ async def test_alert_checking():
     assert alert.last_triggered is not None
 
 
-def test_phase3_app_initialization(app_with_phase3):
+def test_phase3_app_initialization(in_app_with_phase3):
     """Test app initializes with Phase 3 features."""
-    app, metrics = app_with_phase3
+    _, metrics = in_app_with_phase3
 
     assert metrics.llm_costs is not None
     assert metrics.system_metrics is not None
     assert metrics.alert_manager is not None
 
 
-def test_phase3_endpoints_exist(client_phase3):
+def test_phase3_endpoints_exist(in_client_phase3):
     """Test all Phase 3 endpoints are registered."""
     # System metrics
-    response = client_phase3.get("/metrics/system")
+    response = in_client_phase3.get("/metrics/system")
     assert response.status_code == 200
 
     # Costs
-    response = client_phase3.get("/metrics/costs")
+    response = in_client_phase3.get("/metrics/costs")
     assert response.status_code == 200
 
     # Prometheus export
-    response = client_phase3.get("/metrics/export/prometheus")
+    response = in_client_phase3.get("/metrics/export/prometheus")
     assert response.status_code == 200

@@ -1,16 +1,22 @@
+"""
+Docstring for tests.test_storage
+"""
+
+import datetime
 import pytest
-from datetime import datetime, timedelta
 from fastapi_metrics.storage.memory import MemoryStorage
 from fastapi_metrics.storage.sqlite import SQLiteStorage
 
 
 @pytest.fixture
 def memory_storage():
+    """Fixture for in-memory storage."""
     return MemoryStorage()
 
 
 @pytest.fixture
 def sqlite_storage(tmp_path):
+    """Fixture for SQLite storage."""
     db_path = tmp_path / "test_metrics.db"
     return SQLiteStorage(str(db_path))
 
@@ -18,10 +24,18 @@ def sqlite_storage(tmp_path):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("storage_fixture", ["memory_storage", "sqlite_storage"])
 async def test_store_and_query_http_metrics(storage_fixture, request):
+    """
+    Docstring for test_store_and_query_http_metrics
+
+    :param storage_fixture: Description
+    :type storage_fixture: Literal['memory_storage', 'sqlite_storage']
+    :param request: Description
+    :type request: FixtureRequest
+    """
     storage = request.getfixturevalue(storage_fixture)
     await storage.initialize()
 
-    now = datetime.utcnow()
+    now = datetime.datetime.now(datetime.timezone.utc)
 
     # Store metrics
     await storage.store_http_metric(
@@ -33,7 +47,7 @@ async def test_store_and_query_http_metrics(storage_fixture, request):
     )
 
     await storage.store_http_metric(
-        timestamp=now - timedelta(hours=1),
+        timestamp=now - datetime.timedelta(hours=1),
         endpoint="/api/test",
         method="POST",
         status_code=201,
@@ -42,8 +56,8 @@ async def test_store_and_query_http_metrics(storage_fixture, request):
 
     # Query all
     results = await storage.query_http_metrics(
-        from_time=now - timedelta(hours=2),
-        to_time=now + timedelta(hours=1),
+        from_time=now - datetime.timedelta(hours=2),
+        to_time=now + datetime.timedelta(hours=1),
     )
 
     assert len(results) == 2
@@ -52,10 +66,18 @@ async def test_store_and_query_http_metrics(storage_fixture, request):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("storage_fixture", ["memory_storage", "sqlite_storage"])
 async def test_store_and_query_custom_metrics(storage_fixture, request):
+    """
+    Docstring for test_store_and_query_custom_metrics
+
+    :param storage_fixture: Description
+    :type storage_fixture: Literal['memory_storage', 'sqlite_storage']
+    :param request: Description
+    :type request: FixtureRequest
+    """
     storage = request.getfixturevalue(storage_fixture)
     await storage.initialize()
 
-    now = datetime.utcnow()
+    now = datetime.datetime.now(datetime.timezone.utc)
 
     # Store metrics
     await storage.store_custom_metric(
@@ -66,7 +88,7 @@ async def test_store_and_query_custom_metrics(storage_fixture, request):
     )
 
     await storage.store_custom_metric(
-        timestamp=now - timedelta(minutes=30),
+        timestamp=now - datetime.timedelta(minutes=30),
         name="signups",
         value=1,
         labels={"source": "organic"},
@@ -74,8 +96,8 @@ async def test_store_and_query_custom_metrics(storage_fixture, request):
 
     # Query by name
     results = await storage.query_custom_metrics(
-        from_time=now - timedelta(hours=1),
-        to_time=now + timedelta(hours=1),
+        from_time=now - datetime.timedelta(hours=1),
+        to_time=now + datetime.timedelta(hours=1),
         name="revenue",
     )
 
@@ -86,10 +108,18 @@ async def test_store_and_query_custom_metrics(storage_fixture, request):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("storage_fixture", ["memory_storage", "sqlite_storage"])
 async def test_endpoint_stats(storage_fixture, request):
+    """
+    Docstring for test_endpoint_stats
+
+    :param storage_fixture: Description
+    :type storage_fixture: Literal['memory_storage', 'sqlite_storage']
+    :param request: Description
+    :type request: FixtureRequest
+    """
     storage = request.getfixturevalue(storage_fixture)
     await storage.initialize()
 
-    now = datetime.utcnow()
+    now = datetime.datetime.now(datetime.timezone.utc)
 
     # Store multiple requests
     for i in range(5):
@@ -121,11 +151,19 @@ async def test_endpoint_stats(storage_fixture, request):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("storage_fixture", ["memory_storage", "sqlite_storage"])
 async def test_cleanup_old_data(storage_fixture, request):
+    """
+    Docstring for test_cleanup_old_data
+
+    :param storage_fixture: Description
+    :type storage_fixture: Literal['memory_storage', 'sqlite_storage']
+    :param request: Description
+    :type request: FixtureRequest
+    """
     storage = request.getfixturevalue(storage_fixture)
     await storage.initialize()
 
-    now = datetime.utcnow()
-    old_time = now - timedelta(hours=48)
+    now = datetime.datetime.now(datetime.timezone.utc)
+    old_time = now - datetime.timedelta(hours=48)
 
     # Store old and new data
     await storage.store_http_metric(
@@ -145,14 +183,14 @@ async def test_cleanup_old_data(storage_fixture, request):
     )
 
     # Cleanup data older than 24 hours
-    deleted = await storage.cleanup_old_data(before=now - timedelta(hours=24))
+    deleted = await storage.cleanup_old_data(before=now - datetime.timedelta(hours=24))
 
     assert deleted == 1
 
     # Verify only new data remains
     results = await storage.query_http_metrics(
-        from_time=now - timedelta(days=3),
-        to_time=now + timedelta(hours=1),
+        from_time=now - datetime.timedelta(days=3),
+        to_time=now + datetime.timedelta(hours=1),
     )
 
     assert len(results) == 1
@@ -160,14 +198,20 @@ async def test_cleanup_old_data(storage_fixture, request):
 
 
 @pytest.mark.asyncio
-async def test_grouped_query(memory_storage):
-    await memory_storage.initialize()
-    now = datetime.utcnow()
+async def test_grouped_query(memory_store):
+    """
+    Docstring for test_grouped_query
+
+    :param memory_store: Description
+    :type memory_store: MemoryStorage
+    """
+    await memory_store.initialize()
+    now = datetime.datetime.now(datetime.timezone.utc)
 
     # Store metrics across different hours
     for i in range(3):
-        await memory_storage.store_http_metric(
-            timestamp=now - timedelta(hours=i),
+        await memory_store.store_http_metric(
+            timestamp=now - datetime.timedelta(hours=i),
             endpoint="/api/test",
             method="GET",
             status_code=200,
@@ -175,9 +219,9 @@ async def test_grouped_query(memory_storage):
         )
 
     # Query with grouping
-    results = await memory_storage.query_http_metrics(
-        from_time=now - timedelta(hours=5),
-        to_time=now + timedelta(hours=1),
+    results = await memory_store.query_http_metrics(
+        from_time=now - datetime.timedelta(hours=5),
+        to_time=now + datetime.timedelta(hours=1),
         group_by="hour",
     )
 
