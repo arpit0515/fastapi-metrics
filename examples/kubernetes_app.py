@@ -23,14 +23,13 @@ metrics = Metrics(
 
 @app.get("/")
 async def root():
+    """Root endpoint."""
     return {"message": "Scalable API"}
 
 
 @app.post("/api/payment")
 async def payment(amount: float, user_id: int, plan: str):
-    # Your logic...
-
-    # Track metrics (stored in Redis, visible across all pods)
+    """Example endpoint to track payments."""
     await metrics.track("revenue", amount, user_id=user_id, plan=plan)
     await metrics.track("payment_count", 1, plan=plan)
 
