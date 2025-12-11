@@ -1,21 +1,47 @@
 #!/bin/bash
 
 echo "======================================"
-echo "FastAPI Metrics - Test Suite"
+echo "FastAPI Metrics - Test Suite v0.3.0"
 echo "======================================"
 echo ""
 
-# Run basic tests (no Redis required)
-echo "Running basic tests (SQLite, Memory, Health)..."
-pytest tests/test_storage.py tests/test_core.py tests/test_health.py -v
+# Run Phase 1 tests (core functionality)
+echo "Running Phase 1 tests (Core, Storage, Middleware)..."
+pytest tests/test_storage.py tests/test_core.py -v
 
 if [ $? -ne 0 ]; then
-    echo "❌ Basic tests failed!"
+    echo "❌ Phase 1 tests failed!"
     exit 1
 fi
 
 echo ""
-echo "✓ Basic tests passed!"
+echo "✓ Phase 1 tests passed!"
+echo ""
+
+# Run Phase 2 tests (health checks)
+echo "Running Phase 2 tests (Health Checks)..."
+pytest tests/test_health.py -v
+
+if [ $? -ne 0 ]; then
+    echo "❌ Phase 2 tests failed!"
+    exit 1
+fi
+
+echo ""
+echo "✓ Phase 2 tests passed!"
+echo ""
+
+# Run Phase 3 tests (advanced features)
+echo "Running Phase 3 tests (LLM, System, Prometheus, Alerts)..."
+pytest tests/test_phase3.py -v
+
+if [ $? -ne 0 ]; then
+    echo "❌ Phase 3 tests failed!"
+    exit 1
+fi
+
+echo ""
+echo "✓ Phase 3 tests passed!"
 echo ""
 
 # Check if Redis Python package is installed
@@ -35,7 +61,6 @@ if python -c "import redis" 2>/dev/null; then
     else
         echo "⚠️  Redis server not running, skipping Redis tests"
         echo "   Start Redis with: docker run -d -p 6379:6379 redis:7-alpine"
-        echo "   Or: redis-server (if installed)"
     fi
 else
     echo "⚠️  Redis Python package not installed, skipping Redis tests"
@@ -46,8 +71,12 @@ echo ""
 echo "======================================"
 echo "Test Summary"
 echo "======================================"
-echo "✓ Core functionality tests passed"
-echo "✓ Storage backend tests passed"
-echo "✓ Health check tests passed"
+echo "✓ Phase 1: Core functionality"
+echo "✓ Phase 2: Health checks"
+echo "✓ Phase 3: Advanced features"
+echo "  - LLM cost tracking"
+echo "  - System metrics"
+echo "  - Prometheus export"
+echo "  - Alerting"
 echo ""
-echo "Ready to deploy!"
+echo "All tests passed! Ready to deploy! 🚀"
