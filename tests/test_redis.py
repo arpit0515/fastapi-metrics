@@ -11,7 +11,7 @@ pytest.importorskip("redis")
 
 
 @pytest.fixture
-async def redis_storage():
+async def redis_store():
     """Redis storage fixture - requires Redis to be running."""
     storage = RedisStorage("redis://localhost:6379/0")  # Use DB 15 for tests
     try:
