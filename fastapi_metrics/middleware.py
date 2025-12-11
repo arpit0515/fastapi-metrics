@@ -27,7 +27,6 @@ class MetricsMiddleware(BaseHTTPMiddleware):
         except Exception as e:  # pylint: disable=broad-except
             # Track errors
             status_code = 500
-            self.metrics._active_requests -= 1
             raise e
         finally:
             # Calculate latency

@@ -42,47 +42,47 @@ def app_with_health():
 
 
 @pytest.fixture
-def client(in_app):
-    """Test client for the main in_app."""
-    return TestClient(in_app)
+def client(app):
+    """Test client for the main app."""
+    return TestClient(app)
 
 
 @pytest.fixture
-def health_client(in_app_with_health):
+def health_client(app_with_health):
     """Test client for app with health checks."""
-    return TestClient(in_app_with_health)
+    return TestClient(app_with_health)
 
 
-def test_metrics_endpoint(in_client):
+def test_metrics_endpoint(client):
     """Test /metrics endpoint exists and returns data."""
-    response = in_client.get("/metrics")
+    response = client.get("/metrics")
     assert response.status_code == 200
     data = response.json()
     assert "active_requests" in data
     assert "timestamp" in data
 
 
-def test_http_tracking(in_client):
+def test_http_tracking(client):
     """Test HTTP requests are tracked automatically."""
     # Make some requests
-    in_client.get("/test")
-    in_client.get("/test")
+    client.get("/test")
+    client.get("/test")
 
     # Query metrics
-    response = in_client.get("/metrics/query?metric_type=http&from_hours=1")
+    response = client.get("/metrics/query?metric_type=http&from_hours=1")
     assert response.status_code == 200
     data = response.json()
     assert data["count"] >= 2
 
 
-def test_custom_metrics_tracking(in_client):
+def test_custom_metrics_tracking(client):
     """Test custom business metrics are tracked."""
-    # Track custom metrics
-    response = in_client.post("/payment?amount=99.99&user_id=123")
+    # Track custom metric
+    response = client.post("/payment?amount=50.0&user_id=1")
     assert response.status_code == 200
 
     # Query custom metrics
-    response = in_client.get("/metrics/query?metric_type=custom&name=revenue&from_hours=1")
+    response = client.get("/metrics/query?metric_type=custom&name=revenue&from_hours=1")
     assert response.status_code == 200
     data = response.json()
     assert data["count"] >= 1
@@ -90,27 +90,27 @@ def test_custom_metrics_tracking(in_client):
     assert data["results"][0]["value"] == 99.99
 
 
-def test_endpoint_stats(in_client):
+def test_endpoint_stats(client):
     """Test per-endpoint statistics."""
     # Make requests
-    in_client.get("/test")
-    in_client.post("/payment?amount=50.0&user_id=1")
+    client.get("/test")
+    client.post("/payment?amount=50.0&user_id=1")
 
     # Get stats
-    response = in_client.get("/metrics/endpoints")
+    response = client.get("/metrics/endpoints")
     assert response.status_code == 200
     data = response.json()
     assert "endpoints" in data
     assert len(data["endpoints"]) > 0
 
 
-def test_query_with_filters(in_client):
+def test_query_with_filters(client):
     """Test querying with various filters."""
     # Make requests
-    in_client.get("/test")
+    client.get("/test")
 
     # Query with endpoint filter
-    response = in_client.get("/metrics/query?metric_type=http&endpoint=/test&from_hours=1")
+    response = client.get("/metrics/query?metric_type=http&endpoint=/test&from_hours=1")
     assert response.status_code == 200
     data = response.json()
 
@@ -120,14 +120,14 @@ def test_query_with_filters(in_client):
             assert result["endpoint"] == "/test"
 
 
-def test_grouped_query(in_client):
+def test_grouped_query(client):
     """Test grouping metrics by hour."""
     # Make requests
-    in_client.get("/test")
-    in_client.get("/test")
+    client.get("/test")
+    client.get("/test")
 
     # Query with grouping
-    response = in_client.get("/metrics/query?metric_type=http&group_by=hour&from_hours=1")
+    response = client.get("/metrics/query?metric_type=http&group_by=hour&from_hours=1")
     assert response.status_code == 200
     data = response.json()
 
@@ -136,13 +136,13 @@ def test_grouped_query(in_client):
         assert "count" in data["results"][0]
 
 
-def test_cleanup_endpoint(in_client):
+def test_cleanup_endpoint(client):
     """Test manual cleanup endpoint."""
     # Make some requests first
-    in_client.get("/test")
+    client.get("/test")
 
     # Trigger cleanup
-    response = in_client.post("/metrics/cleanup?hours_to_keep=0")
+    response = client.post("/metrics/cleanup?hours_to_keep=0")
     assert response.status_code == 200
     data = response.json()
     assert "deleted_records" in data
@@ -179,37 +179,37 @@ def test_invalid_storage_backend():
         Metrics(in_app, storage="invalid://backend")
 
 
-def test_health_endpoints(in_health_client):
+def test_health_endpoints(health_client):
     """Test health check endpoints are registered when enabled."""
     # Test /health
-    response = in_health_client.get("/health")
+    response = health_client.get("/health")
     assert response.status_code == 200
     data = response.json()
     assert "status" in data
     assert "checks" in data
 
     # Test /health/live
-    response = in_health_client.get("/health/live")
+    response = health_client.get("/health/live")
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "ok"
 
     # Test /health/ready
-    response = in_health_client.get("/health/ready")
+    response = health_client.get("/health/ready")
     assert response.status_code in [200, 503]  # May be 503 if checks fail
     data = response.json()
     assert "status" in data
 
 
-def test_health_not_enabled(in_client):
+def test_health_not_enabled(client):
     """Test health endpoints don't exist when not enabled."""
-    response = in_client.get("/health")
+    response = client.get("/health")
     assert response.status_code == 404
 
-    response = in_client.get("/health/live")
+    response = client.get("/health/live")
     assert response.status_code == 404
 
-    response = in_client.get("/health/ready")
+    response = client.get("/health/ready")
     assert response.status_code == 404
 
 

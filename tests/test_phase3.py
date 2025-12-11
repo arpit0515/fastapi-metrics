@@ -30,9 +30,9 @@ def app_with_phase3():
 
 
 @pytest.fixture
-def client_phase3(in_app_with_phase3):
+def client_phase3(app_with_phase3):
     """Test client for app with Phase 3 features."""
-    app, _ = in_app_with_phase3
+    app, _ = app_with_phase3
     return TestClient(app)
 
 
@@ -161,9 +161,9 @@ async def test_system_metrics_tracking():
     assert len(cpu_metrics) >= 1
 
 
-def test_system_metrics_endpoint(in_client_phase3):
+def test_system_metrics_endpoint(client_phase3):
     """Test /metrics/system endpoint."""
-    response = in_client_phase3.get("/metrics/system")
+    response = client_phase3.get("/metrics/system")
     assert response.status_code == 200
     data = response.json()
 
@@ -198,9 +198,9 @@ async def test_prometheus_exporter():
     assert 'endpoint="/api/test"' in output
 
 
-def test_prometheus_export_endpoint(in_client_phase3):
+def test_prometheus_export_endpoint(client_phase3):
     """Test /metrics/export/prometheus endpoint."""
-    response = in_client_phase3.get("/metrics/export/prometheus")
+    response = client_phase3.get("/metrics/export/prometheus")
     assert response.status_code == 200
 
     # Should be plain text
@@ -310,25 +310,25 @@ async def test_alert_checking():
     assert alert.last_triggered is not None
 
 
-def test_phase3_app_initialization(in_app_with_phase3):
+def test_phase3_app_initialization(app_with_phase3):
     """Test app initializes with Phase 3 features."""
-    _, metrics = in_app_with_phase3
+    _, metrics = app_with_phase3
 
     assert metrics.llm_costs is not None
     assert metrics.system_metrics is not None
     assert metrics.alert_manager is not None
 
 
-def test_phase3_endpoints_exist(in_client_phase3):
+def test_phase3_endpoints_exist(client_phase3):
     """Test all Phase 3 endpoints are registered."""
     # System metrics
-    response = in_client_phase3.get("/metrics/system")
+    response = client_phase3.get("/metrics/system")
     assert response.status_code == 200
 
     # Costs
-    response = in_client_phase3.get("/metrics/costs")
+    response = client_phase3.get("/metrics/costs")
     assert response.status_code == 200
 
     # Prometheus export
-    response = in_client_phase3.get("/metrics/export/prometheus")
+    response = client_phase3.get("/metrics/export/prometheus")
     assert response.status_code == 200
