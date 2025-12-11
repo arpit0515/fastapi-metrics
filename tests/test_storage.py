@@ -15,6 +15,12 @@ def memory_storage():
 
 
 @pytest.fixture
+def memory_store(memory_storage):
+    """Alias fixture for tests expecting `memory_store` name."""
+    return memory_storage
+
+
+@pytest.fixture
 def sqlite_storage(tmp_path):
     """Fixture for SQLite storage."""
     db_path = tmp_path / "test_metrics.db"
