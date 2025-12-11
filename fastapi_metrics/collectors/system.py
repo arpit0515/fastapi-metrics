@@ -1,14 +1,14 @@
 """System metrics collection (CPU, Memory, Disk)."""
 
 import psutil
-from typing import Dict
+from typing import Any, Dict
 from datetime import datetime
 
 
 class SystemMetricsCollector:
     """Collect system resource metrics."""
 
-    def __init__(self, metrics_instance):
+    def __init__(self, metrics_instance: Any) -> None:
         self.metrics = metrics_instance
 
     def get_cpu_percent(self) -> float:

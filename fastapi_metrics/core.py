@@ -1,3 +1,5 @@
+"""Core metrics functionality for FastAPI applications."""
+
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional, Union
 from fastapi import FastAPI
@@ -33,11 +35,13 @@ class Metrics:
 
         Args:
             app: FastAPI application instance
-            storage: Storage backend ("memory://", "sqlite://path", "redis://host:port/db") or StorageBackend instance
+            storage: Storage backend ("memory://", "sqlite://path",
+                "redis://host:port/db") or StorageBackend instance
             retention_hours: How long to keep metrics data (hours)
             enable_cleanup: Whether to enable automatic cleanup of old data
             enable_health_checks: Enable Kubernetes health check endpoints
-            enable_system_metrics: Enable system metrics collection (CPU, memory, disk)
+            enable_system_metrics: Enable system metrics collection
+                (CPU, memory, disk)
             alert_webhook_url: Optional webhook URL for alert notifications
         """
         self.app = app

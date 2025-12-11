@@ -1,3 +1,5 @@
+"""Health check implementations for system resources and databases."""
+
 from abc import ABC, abstractmethod
 from typing import Dict, Any
 import psutil
@@ -11,6 +13,7 @@ class HealthCheck(ABC):
     async def check(self) -> Dict[str, Any]:
         """
         Perform health check.
+
         Returns dict with 'status' (ok/error) and optional details.
         """
         pass
@@ -19,11 +22,14 @@ class HealthCheck(ABC):
 class DiskSpaceCheck(HealthCheck):
     """Check disk space availability."""
 
-    def __init__(self, path: str = "/", min_free_gb: float = 1.0):
+    def __init__(
+        self, path: str = "/", min_free_gb: float = 1.0
+    ) -> None:
         self.path = path
         self.min_free_bytes = min_free_gb * 1024 * 1024 * 1024
 
     async def check(self) -> Dict[str, Any]:
+        """Check disk space."""
         try:
             usage = psutil.disk_usage(self.path)
             free_gb = usage.free / (1024**3)
@@ -41,17 +47,18 @@ class DiskSpaceCheck(HealthCheck):
                 "free_gb": free_gb,
                 "percent_used": usage.percent,
             }
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-except
             return {"status": "error", "message": str(e)}
 
 
 class MemoryCheck(HealthCheck):
     """Check memory usage."""
 
-    def __init__(self, max_percent: float = 90.0):
+    def __init__(self, max_percent: float = 90.0) -> None:
         self.max_percent = max_percent
 
     async def check(self) -> Dict[str, Any]:
+        """Check memory usage."""
         try:
             mem = psutil.virtual_memory()
 
@@ -68,17 +75,18 @@ class MemoryCheck(HealthCheck):
                 "percent_used": mem.percent,
                 "available_gb": mem.available / (1024**3),
             }
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-except
             return {"status": "error", "message": str(e)}
 
 
 class DatabaseCheck(HealthCheck):
     """Check database connectivity."""
 
-    def __init__(self, storage_backend):
+    def __init__(self, storage_backend: Any) -> None:
         self.storage = storage_backend
 
     async def check(self) -> Dict[str, Any]:
+        """Check database connectivity."""
         try:
             # Try a simple operation
             from datetime import datetime, timedelta
@@ -91,14 +99,17 @@ class DatabaseCheck(HealthCheck):
             )
 
             return {"status": "ok", "message": "Database connected"}
-        except Exception as e:
-            return {"status": "error", "message": f"Database error: {str(e)}"}
+        except Exception as e:  # pylint: disable=broad-except
+            return {
+                "status": "error",
+                "message": f"Database error: {str(e)}"
+            }
 
 
 class RedisCheck(HealthCheck):
     """Check Redis connectivity."""
 
-    def __init__(self, redis_client):
+    def __init__(self, redis_client: Any) -> None:
         self.redis = redis_client
 
     async def check(self) -> Dict[str, Any]:

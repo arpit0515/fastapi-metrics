@@ -1,6 +1,6 @@
 """LLM API cost tracking for OpenAI and Anthropic."""
 
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 from datetime import datetime
 
 
@@ -27,7 +27,7 @@ ANTHROPIC_PRICING = {
 class LLMCostTracker:
     """Track LLM API costs."""
 
-    def __init__(self, metrics_instance):
+    def __init__(self, metrics_instance: Any) -> None:
         self.metrics = metrics_instance
 
     def calculate_openai_cost(

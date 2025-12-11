@@ -1,6 +1,8 @@
+"""Middleware for tracking HTTP request metrics."""
+
 import time
 from datetime import datetime
-from typing import Callable
+from typing import Any, Callable
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -8,11 +10,13 @@ from starlette.middleware.base import BaseHTTPMiddleware
 class MetricsMiddleware(BaseHTTPMiddleware):
     """Middleware to track HTTP request metrics."""
 
-    def __init__(self, app, metrics_instance):
+    def __init__(self, app: Any, metrics_instance: Any) -> None:
         super().__init__(app)
         self.metrics = metrics_instance
 
-    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+    async def dispatch(
+        self, request: Request, call_next: Callable
+    ) -> Response:
         """Track request metrics."""
         start_time = time.perf_counter()
 
@@ -22,7 +26,7 @@ class MetricsMiddleware(BaseHTTPMiddleware):
         try:
             response = await call_next(request)
             status_code = response.status_code
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-except
             # Track errors
             status_code = 500
             self.metrics._active_requests -= 1

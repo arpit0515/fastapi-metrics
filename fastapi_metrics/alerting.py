@@ -1,9 +1,12 @@
 """Simple threshold-based alerting with webhook notifications."""
 
 import asyncio
-from typing import Callable, Optional, Dict, Any
+import logging
+from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
 import json
+
+logger = logging.getLogger(__name__)
 
 try:
     import httpx
@@ -47,7 +50,9 @@ class Alert:
 class AlertManager:
     """Manage alerts and notifications."""
 
-    def __init__(self, metrics_instance, webhook_url: Optional[str] = None):
+    def __init__(
+        self, metrics_instance: Any, webhook_url: Optional[str] = None
+    ) -> None:
         self.metrics = metrics_instance
         self.webhook_url = webhook_url
         self.alerts: Dict[str, Alert] = {}
@@ -119,9 +124,9 @@ class AlertManager:
                         self.webhook_url,
                         json=message,
                     )
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-except
                 # Log error but don't fail
-                print(f"Failed to send alert webhook: {e}")
+                logger.error("Failed to send alert webhook: %s", e)
 
         # Track alert as metric
         await self.metrics.track(
@@ -136,8 +141,8 @@ class AlertManager:
         while self._running:
             try:
                 await self.check_alerts()
-            except Exception as e:
-                print(f"Error checking alerts: {e}")
+            except Exception as e:  # pylint: disable=broad-except
+                logger.error("Error checking alerts: %s", e)
 
             # Check every minute
             await asyncio.sleep(60)

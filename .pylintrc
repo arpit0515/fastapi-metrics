@@ -1,0 +1,35 @@
+[MASTER]
+# Specify a configuration file.
+ignore-patterns=test_.*\.py
+load-plugins=
+
+[MESSAGES CONTROL]
+# C0111: missing-docstring
+# C0103: invalid-name
+# W0212: protected-access
+# R0913: too-many-arguments
+# R0904: too-many-public-methods
+disable=
+    missing-docstring,
+    invalid-name,
+    protected-access,
+    too-many-arguments,
+    too-many-public-methods,
+    too-many-locals,
+    duplicate-code,
+
+[DESIGN]
+max-attributes=7
+max-arguments=8
+max-locals=20
+
+[FORMAT]
+max-line-length=100
+indent-string='    '
+
+[LOGGING]
+logging-format-style=new
+
+[REPORTS]
+# Set the output format. Available formats are text, parseable, colorized, json
+output-format=text

@@ -1,13 +1,13 @@
 """Prometheus export format."""
 
-from typing import List, Dict, Any
+from typing import Any, Dict
 from datetime import datetime, timedelta
 
 
 class PrometheusExporter:
     """Export metrics in Prometheus format."""
 
-    def __init__(self, storage):
+    def __init__(self, storage: Any) -> None:
         self.storage = storage
 
     async def export_http_metrics(self, hours: int = 1) -> str:
@@ -27,18 +27,22 @@ class PrometheusExporter:
             endpoint = stat["endpoint"].replace('"', '\\"')
             method = stat["method"]
             lines.append(
-                f'http_requests_total{{endpoint="{endpoint}",method="{method}"}} {stat["count"]}'
+                f'http_requests_total{{endpoint="{endpoint}",'
+                f'method="{method}"}} {stat["count"]}'
             )
 
         # Latency
         lines.append("")
-        lines.append("# HELP http_request_duration_ms HTTP request duration in milliseconds")
+        lines.append(
+            "# HELP http_request_duration_ms HTTP request duration in ms"
+        )
         lines.append("# TYPE http_request_duration_ms gauge")
         for stat in stats:
             endpoint = stat["endpoint"].replace('"', '\\"')
             method = stat["method"]
             lines.append(
-                f'http_request_duration_ms{{endpoint="{endpoint}",method="{method}",quantile="avg"}} {stat["avg_latency_ms"]}'
+                f'http_request_duration_ms{{endpoint="{endpoint}",'
+                f'method="{method}",quantile="avg"}} {stat["avg_latency_ms"]}'
             )
 
         # Error rate
