@@ -26,10 +26,10 @@ ANTHROPIC_PRICING = {
 
 class LLMCostTracker:
     """Track LLM API costs."""
-    
+
     def __init__(self, metrics_instance):
         self.metrics = metrics_instance
-    
+
     def calculate_openai_cost(
         self,
         model: str,
@@ -40,24 +40,24 @@ class LLMCostTracker:
         # Normalize model name - check longest matches first to avoid partial matches
         model_lower = model.lower()
         model_key = model_lower
-        
+
         # Sort by length (longest first) to match specific models before generic ones
         sorted_keys = sorted(OPENAI_PRICING.keys(), key=len, reverse=True)
         for key in sorted_keys:
             if key in model_lower:
                 model_key = key
                 break
-        
+
         pricing = OPENAI_PRICING.get(model_key)
         if not pricing:
             # Unknown model, return 0
             return 0.0
-        
+
         input_cost = (input_tokens / 1_000_000) * pricing["input"]
         output_cost = (output_tokens / 1_000_000) * pricing["output"]
-        
+
         return input_cost + output_cost
-    
+
     def calculate_anthropic_cost(
         self,
         model: str,
@@ -68,23 +68,23 @@ class LLMCostTracker:
         # Normalize model name - check longest matches first to avoid partial matches
         model_lower = model.lower()
         model_key = model_lower
-        
+
         # Sort by length (longest first) to match specific models before generic ones
         sorted_keys = sorted(ANTHROPIC_PRICING.keys(), key=len, reverse=True)
         for key in sorted_keys:
             if key in model_lower:
                 model_key = key
                 break
-        
+
         pricing = ANTHROPIC_PRICING.get(model_key)
         if not pricing:
             return 0.0
-        
+
         input_cost = (input_tokens / 1_000_000) * pricing["input"]
         output_cost = (output_tokens / 1_000_000) * pricing["output"]
-        
+
         return input_cost + output_cost
-    
+
     async def track_openai_call(
         self,
         model: str,
@@ -94,7 +94,7 @@ class LLMCostTracker:
     ):
         """Track OpenAI API call."""
         cost = self.calculate_openai_cost(model, input_tokens, output_tokens)
-        
+
         await self.metrics.track(
             "llm_cost",
             cost,
@@ -116,7 +116,7 @@ class LLMCostTracker:
             model=model,
             **labels,
         )
-    
+
     async def track_anthropic_call(
         self,
         model: str,
@@ -126,7 +126,7 @@ class LLMCostTracker:
     ):
         """Track Anthropic API call."""
         cost = self.calculate_anthropic_cost(model, input_tokens, output_tokens)
-        
+
         await self.metrics.track(
             "llm_cost",
             cost,

@@ -7,18 +7,18 @@ from fastapi_metrics import Metrics
 @pytest.fixture
 def app():
     app = FastAPI()
-    
+
     metrics = Metrics(app, storage="memory://", retention_hours=24)
-    
+
     @app.get("/test")
     async def test_endpoint():
         return {"status": "ok"}
-    
+
     @app.post("/payment")
     async def payment(amount: float, user_id: int):
         await metrics.track("revenue", amount, user_id=user_id)
         return {"status": "success"}
-    
+
     return app
 
 
@@ -26,18 +26,13 @@ def app():
 def app_with_health():
     """App with health checks enabled."""
     app = FastAPI()
-    
-    metrics = Metrics(
-        app, 
-        storage="memory://", 
-        retention_hours=24,
-        enable_health_checks=True
-    )
-    
+
+    metrics = Metrics(app, storage="memory://", retention_hours=24, enable_health_checks=True)
+
     @app.get("/test")
     async def test_endpoint():
         return {"status": "ok"}
-    
+
     return app
 
 
@@ -65,7 +60,7 @@ def test_http_tracking(client):
     # Make some requests
     client.get("/test")
     client.get("/test")
-    
+
     # Query metrics
     response = client.get("/metrics/query?metric_type=http&from_hours=1")
     assert response.status_code == 200
@@ -78,7 +73,7 @@ def test_custom_metrics_tracking(client):
     # Track custom metrics
     response = client.post("/payment?amount=99.99&user_id=123")
     assert response.status_code == 200
-    
+
     # Query custom metrics
     response = client.get("/metrics/query?metric_type=custom&name=revenue&from_hours=1")
     assert response.status_code == 200
@@ -93,7 +88,7 @@ def test_endpoint_stats(client):
     # Make requests
     client.get("/test")
     client.post("/payment?amount=50.0&user_id=1")
-    
+
     # Get stats
     response = client.get("/metrics/endpoints")
     assert response.status_code == 200
@@ -106,12 +101,12 @@ def test_query_with_filters(client):
     """Test querying with various filters."""
     # Make requests
     client.get("/test")
-    
+
     # Query with endpoint filter
     response = client.get("/metrics/query?metric_type=http&endpoint=/test&from_hours=1")
     assert response.status_code == 200
     data = response.json()
-    
+
     # All results should be for /test endpoint
     for result in data["results"]:
         if isinstance(result, dict) and "endpoint" in result:
@@ -123,12 +118,12 @@ def test_grouped_query(client):
     # Make requests
     client.get("/test")
     client.get("/test")
-    
+
     # Query with grouping
     response = client.get("/metrics/query?metric_type=http&group_by=hour&from_hours=1")
     assert response.status_code == 200
     data = response.json()
-    
+
     # Results should be grouped
     if data["count"] > 0:
         assert "count" in data["results"][0]
@@ -138,7 +133,7 @@ def test_cleanup_endpoint(client):
     """Test manual cleanup endpoint."""
     # Make some requests first
     client.get("/test")
-    
+
     # Trigger cleanup
     response = client.post("/metrics/cleanup?hours_to_keep=0")
     assert response.status_code == 200
@@ -152,17 +147,18 @@ def test_sqlite_storage(tmp_path):
     app = FastAPI()
     db_path = tmp_path / "test_metrics.db"
     metrics = Metrics(app, storage=f"sqlite://{db_path}")
-    
+
     # Use context manager to trigger startup/shutdown events
     with TestClient(app) as client:
+
         @app.get("/")
         async def root():
             return {"message": "test"}
-        
+
         # Make request
         response = client.get("/")
         assert response.status_code == 200
-        
+
         # Check metrics are stored
         response = client.get("/metrics/query?metric_type=http&from_hours=1")
         assert response.status_code == 200
@@ -171,7 +167,7 @@ def test_sqlite_storage(tmp_path):
 def test_invalid_storage_backend():
     """Test invalid storage backend raises error."""
     app = FastAPI()
-    
+
     with pytest.raises(ValueError, match="Unknown storage backend"):
         Metrics(app, storage="invalid://backend")
 
@@ -184,13 +180,13 @@ def test_health_endpoints(health_client):
     data = response.json()
     assert "status" in data
     assert "checks" in data
-    
+
     # Test /health/live
     response = health_client.get("/health/live")
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "ok"
-    
+
     # Test /health/ready
     response = health_client.get("/health/ready")
     assert response.status_code in [200, 503]  # May be 503 if checks fail
@@ -202,33 +198,34 @@ def test_health_not_enabled(client):
     """Test health endpoints don't exist when not enabled."""
     response = client.get("/health")
     assert response.status_code == 404
-    
+
     response = client.get("/health/live")
     assert response.status_code == 404
-    
+
     response = client.get("/health/ready")
     assert response.status_code == 404
 
 
 @pytest.mark.skipif(
     not pytest.importorskip("redis", reason="Redis not installed"),
-    reason="Redis package not available"
+    reason="Redis package not available",
 )
 def test_redis_storage_initialization():
     """Test Redis storage can be initialized (requires Redis running)."""
     app = FastAPI()
-    
+
     try:
         metrics = Metrics(app, storage="redis://localhost:6379/15")
-        
+
         with TestClient(app) as client:
+
             @app.get("/")
             async def root():
                 return {"message": "test"}
-            
+
             response = client.get("/")
             assert response.status_code == 200
-            
+
             # Check metrics endpoint
             response = client.get("/metrics")
             assert response.status_code == 200

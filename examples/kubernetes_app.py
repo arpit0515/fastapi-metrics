@@ -20,19 +20,22 @@ metrics = Metrics(
     enable_health_checks=True,  # Enables /health, /health/live, /health/ready
 )
 
+
 @app.get("/")
 async def root():
     return {"message": "Scalable API"}
 
+
 @app.post("/api/payment")
 async def payment(amount: float, user_id: int, plan: str):
     # Your logic...
-    
+
     # Track metrics (stored in Redis, visible across all pods)
     await metrics.track("revenue", amount, user_id=user_id, plan=plan)
     await metrics.track("payment_count", 1, plan=plan)
-    
+
     return {"status": "success"}
+
 
 # Health endpoints automatically available:
 # GET /health - Overall health
@@ -41,4 +44,5 @@ async def payment(amount: float, user_id: int, plan: str):
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -13,7 +13,7 @@ except ImportError:
 
 class Alert:
     """Alert configuration."""
-    
+
     def __init__(
         self,
         name: str,
@@ -28,7 +28,7 @@ class Alert:
         self.comparison = comparison
         self.window_minutes = window_minutes
         self.last_triggered = None
-    
+
     def check(self, value: float) -> bool:
         """Check if alert should trigger."""
         if self.comparison == ">":
@@ -46,41 +46,41 @@ class Alert:
 
 class AlertManager:
     """Manage alerts and notifications."""
-    
+
     def __init__(self, metrics_instance, webhook_url: Optional[str] = None):
         self.metrics = metrics_instance
         self.webhook_url = webhook_url
         self.alerts: Dict[str, Alert] = {}
         self._running = False
         self._task = None
-    
+
     def __del__(self):
         """Ensure background task is stopped on cleanup."""
         if self._running and self._task:
             # Can't await in destructor, so just cancel
             self._task.cancel()
             self._running = False
-    
+
     def add_alert(self, alert: Alert):
         """Register an alert."""
         self.alerts[alert.name] = alert
-    
+
     def remove_alert(self, name: str):
         """Remove an alert."""
         if name in self.alerts:
             del self.alerts[name]
-    
+
     async def check_alerts(self):
         """Check all alerts against current metrics."""
         now = datetime.utcnow()
-        
+
         for alert in self.alerts.values():
             # Skip if recently triggered (avoid spam)
             if alert.last_triggered:
                 time_since = (now - alert.last_triggered).total_seconds() / 60
                 if time_since < alert.window_minutes:
                     continue
-            
+
             # Query metric
             from_time = now - timedelta(minutes=alert.window_minutes)
             metrics = await self.metrics.storage.query_custom_metrics(
@@ -88,18 +88,18 @@ class AlertManager:
                 to_time=now,
                 name=alert.metric_name,
             )
-            
+
             if not metrics:
                 continue
-            
+
             # Calculate average value in window
             avg_value = sum(m["value"] for m in metrics) / len(metrics)
-            
+
             # Check threshold
             if alert.check(avg_value):
                 await self._trigger_alert(alert, avg_value)
                 alert.last_triggered = now
-    
+
     async def _trigger_alert(self, alert: Alert, value: float):
         """Trigger an alert."""
         message = {
@@ -110,7 +110,7 @@ class AlertManager:
             "comparison": alert.comparison,
             "timestamp": datetime.utcnow().isoformat(),
         }
-        
+
         # Send webhook
         if self.webhook_url and httpx:
             try:
@@ -122,7 +122,7 @@ class AlertManager:
             except Exception as e:
                 # Log error but don't fail
                 print(f"Failed to send alert webhook: {e}")
-        
+
         # Track alert as metric
         await self.metrics.track(
             "alert_triggered",
@@ -130,7 +130,7 @@ class AlertManager:
             alert_name=alert.name,
             metric_name=alert.metric_name,
         )
-    
+
     async def _check_loop(self):
         """Background task to check alerts periodically."""
         while self._running:
@@ -138,16 +138,16 @@ class AlertManager:
                 await self.check_alerts()
             except Exception as e:
                 print(f"Error checking alerts: {e}")
-            
+
             # Check every minute
             await asyncio.sleep(60)
-    
+
     def start(self):
         """Start the alert checking background task."""
         if not self._running:
             self._running = True
             self._task = asyncio.create_task(self._check_loop())
-    
+
     async def stop(self):
         """Stop the alert checking background task."""
         self._running = False

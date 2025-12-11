@@ -5,7 +5,7 @@ from .endpoints import HealthManager
 
 __all__ = [
     "HealthCheck",
-    "DiskSpaceCheck", 
+    "DiskSpaceCheck",
     "MemoryCheck",
     "DatabaseCheck",
     "HealthManager",

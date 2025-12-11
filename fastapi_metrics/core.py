@@ -30,7 +30,7 @@ class Metrics:
     ):
         """
         Initialize metrics for a FastAPI application.
-        
+
         Args:
             app: FastAPI application instance
             storage: Storage backend ("memory://", "sqlite://path", "redis://host:port/db") or StorageBackend instance
@@ -45,12 +45,12 @@ class Metrics:
         self.enable_cleanup = enable_cleanup
         self._active_requests = 0
         self.health_manager = HealthManager() if enable_health_checks else None
-        
+
         # Initialize Phase 3 components
         self.llm_costs = LLMCostTracker(self)
         self.system_metrics = SystemMetricsCollector(self) if enable_system_metrics else None
         self.alert_manager = AlertManager(self, webhook_url=alert_webhook_url)
-        
+
         # Initialize storage backend
         if isinstance(storage, str):
             if storage.startswith("memory://"):
@@ -60,41 +60,43 @@ class Metrics:
                 self.storage = SQLiteStorage(db_path)
             elif storage.startswith("redis://"):
                 from .storage.redis import RedisStorage
+
                 self.storage = RedisStorage(storage)
             else:
                 raise ValueError(f"Unknown storage backend: {storage}")
         else:
             self.storage = storage
-        
+
         # Register startup/shutdown events
         @app.on_event("startup")
         async def startup():
             await self.storage.initialize()
-            
+
             # Setup health checks if enabled
             if self.health_manager:
                 self.health_manager.add_check("disk", DiskSpaceCheck())
                 self.health_manager.add_check("memory", MemoryCheck())
                 self.health_manager.add_check("database", DatabaseCheck(self.storage))
-                
+
                 # Add Redis check if using Redis storage
                 if storage.startswith("redis://"):
                     from .health.checks import RedisCheck
+
                     self.health_manager.add_check("redis", RedisCheck(self.storage.client))
-        
+
         @app.on_event("shutdown")
         async def shutdown():
             await self.storage.close()
-        
+
         # Add middleware
         app.add_middleware(MetricsMiddleware, metrics_instance=self)
-        
+
         # Register metrics endpoints
         self._register_endpoints()
 
     def _register_endpoints(self):
         """Register metrics API endpoints."""
-        
+
         @self.app.get("/metrics")
         async def get_metrics():
             """Get current metrics snapshot."""
@@ -102,7 +104,7 @@ class Metrics:
                 "active_requests": self._active_requests,
                 "timestamp": datetime.utcnow().isoformat(),
             }
-        
+
         @self.app.get("/metrics/query")
         async def query_metrics(
             metric_type: str = "http",
@@ -115,7 +117,7 @@ class Metrics:
         ):
             """
             Query metrics with time range and filters.
-            
+
             Args:
                 metric_type: "http" or "custom"
                 from_hours: Hours ago to start query (default: 24)
@@ -128,7 +130,7 @@ class Metrics:
             now = datetime.utcnow()
             from_time = now - timedelta(hours=from_hours)
             to_time = now - timedelta(hours=to_hours)
-            
+
             if metric_type == "http":
                 results = await self.storage.query_http_metrics(
                     from_time=from_time,
@@ -146,7 +148,7 @@ class Metrics:
                 )
             else:
                 return {"error": "Invalid metric_type. Use 'http' or 'custom'"}
-            
+
             return {
                 "metric_type": metric_type,
                 "from": from_time.isoformat(),
@@ -154,7 +156,7 @@ class Metrics:
                 "count": len(results),
                 "results": results,
             }
-        
+
         @self.app.get("/metrics/endpoints")
         async def get_endpoint_stats():
             """Get aggregated statistics per endpoint."""
@@ -163,7 +165,7 @@ class Metrics:
                 "timestamp": datetime.utcnow().isoformat(),
                 "endpoints": stats,
             }
-        
+
         @self.app.post("/metrics/cleanup")
         async def cleanup_metrics(hours_to_keep: int = None):
             """Manually trigger cleanup of old metrics data."""
@@ -174,34 +176,37 @@ class Metrics:
                 "deleted_records": deleted,
                 "cleaned_before": before.isoformat(),
             }
-        
+
         # Health check endpoints (if enabled)
         if self.health_manager:
+
             @self.app.get("/health")
             async def health():
                 """Simple health check."""
                 return await self.health_manager.run_checks()
-            
+
             @self.app.get("/health/live")
             async def health_live():
                 """Kubernetes liveness probe."""
                 return await self.health_manager.liveness()
-            
+
             @self.app.get("/health/ready")
             async def health_ready():
                 """Kubernetes readiness probe."""
                 result = await self.health_manager.readiness()
                 # Return 503 if not ready
                 from fastapi import Response
+
                 status_code = 200 if result["status"] == "ok" else 503
                 return Response(
                     content=json.dumps(result),
                     status_code=status_code,
-                    media_type="application/json"
+                    media_type="application/json",
                 )
-        
+
         # Phase 3: System metrics endpoints (if enabled)
         if self.system_metrics:
+
             @self.app.get("/metrics/system")
             async def get_system_metrics():
                 """Get current system metrics."""
@@ -211,20 +216,20 @@ class Metrics:
                     "memory": self.system_metrics.get_memory_stats(),
                     "disk": self.system_metrics.get_disk_stats(),
                 }
-        
+
         # Phase 3: LLM Costs endpoint
         @self.app.get("/metrics/costs")
         async def get_llm_costs(hours: int = 24):
             """Get LLM API costs."""
             now = datetime.utcnow()
             from_time = now - timedelta(hours=hours)
-            
+
             costs = await self.storage.query_custom_metrics(
                 from_time=from_time,
                 to_time=now,
                 name="llm_cost",
             )
-            
+
             total_cost = sum(c.get("value", 0) for c in costs)
             by_provider = {}
             for cost in costs:
@@ -232,22 +237,23 @@ class Metrics:
                 if provider not in by_provider:
                     by_provider[provider] = 0
                 by_provider[provider] += cost.get("value", 0)
-            
+
             return {
                 "total_cost": total_cost,
                 "by_provider": by_provider,
                 "count": len(costs),
                 "period_hours": hours,
             }
-        
+
         # Phase 3: Prometheus export endpoint
         @self.app.get("/metrics/export/prometheus")
         async def export_prometheus(hours: int = 1):
             """Export metrics in Prometheus format."""
             exporter = PrometheusExporter(self.storage)
             output = await exporter.export_http_metrics(hours=hours)
-            
+
             from fastapi import Response
+
             return Response(
                 content=output,
                 media_type="text/plain; version=0.0.4",
@@ -278,12 +284,12 @@ class Metrics:
     ):
         """
         Track a custom business metric.
-        
+
         Args:
             name: Metric name (e.g., "revenue", "signups", "api_calls")
             value: Numeric value to track
             **labels: Optional labels for segmentation (e.g., user_id=123, plan="pro")
-        
+
         Example:
             await metrics.track("revenue", 99.99, user_id=123, plan="pro")
             await metrics.track("signups", 1, source="organic")
@@ -301,10 +307,11 @@ class Metrics:
         Note: This creates a new event loop. Use async track() when possible.
         """
         import asyncio
+
         try:
             loop = asyncio.get_event_loop()
         except RuntimeError:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-        
+
         loop.run_until_complete(self.track(name, value, **labels))
