@@ -1,6 +1,7 @@
 """
 Docstring for tests.conftest
 """
+
 import os
 import sys
 import time
@@ -33,7 +34,7 @@ def event_loop():
 
     # Shutdown the default executor
     try:
-        executor = loop._default_executor #pylint: disable=protected-access
+        executor = loop._default_executor  # pylint: disable=protected-access
         if executor:
             executor.shutdown(wait=False)
     except Exception:  # pylint: disable=W0718

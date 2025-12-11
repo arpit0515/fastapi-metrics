@@ -1,4 +1,5 @@
 """In-memory storage backend for FastAPI Metrics."""
+
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 from collections import defaultdict

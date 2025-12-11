@@ -527,6 +527,6 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("\n\nSetup cancelled.")
         sys.exit(0)
-    except Exception as e: #pylint: disable=broad-except
+    except Exception as e:  # pylint: disable=broad-except
         print(f"\n\n❌ Error: {e}")
         sys.exit(1)

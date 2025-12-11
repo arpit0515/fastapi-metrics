@@ -1,4 +1,5 @@
-""""Redis storage backend for FastAPI Metrics."""
+""" "Redis storage backend for FastAPI Metrics."""
+
 from collections import defaultdict
 import json
 from datetime import datetime
