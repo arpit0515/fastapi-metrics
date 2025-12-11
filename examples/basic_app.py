@@ -3,6 +3,7 @@ Basic FastAPI app with metrics enabled.
 Run with: uvicorn basic_app:app --reload
 """
 
+import asyncio
 from fastapi import FastAPI
 from fastapi_metrics import Metrics
 
@@ -18,21 +19,20 @@ metrics = Metrics(
 
 @app.get("/")
 async def root():
+    """Root endpoint."""
     return {"message": "Hello World"}
 
 
 @app.get("/users/{user_id}")
 async def get_user(user_id: int):
-    # Simulate some work
-    import asyncio
-
+    """Simulate some work"""
     await asyncio.sleep(0.1)
     return {"user_id": user_id, "name": "John Doe"}
 
 
 @app.post("/payment")
 async def process_payment(amount: float, user_id: int):
-    # Track custom business metrics
+    """Process a payment."""
     await metrics.track("revenue", amount, user_id=user_id)
     await metrics.track("payment_count", 1)
 
@@ -41,7 +41,7 @@ async def process_payment(amount: float, user_id: int):
 
 @app.post("/signup")
 async def signup(email: str, plan: str = "free"):
-    # Track signups
+    """Track signups"""
     await metrics.track("signups", 1, plan=plan)
 
     return {"status": "created", "email": email}

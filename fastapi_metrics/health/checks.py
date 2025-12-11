@@ -109,5 +109,5 @@ class RedisCheck(HealthCheck):
         try:
             await self.redis.ping()
             return {"status": "ok", "message": "Redis connected"}
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-except
             return {"status": "error", "message": f"Redis error: {str(e)}"}

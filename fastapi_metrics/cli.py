@@ -167,6 +167,10 @@ if metrics.alert_manager:
 
 def generate_documentation(config):
     """Generate customized documentation."""
+    # pylint: disable=duplicate-code
+    # This function intentionally builds documentation strings with repeated
+    # patterns for conditional feature sections. The duplication is a natural
+    # consequence of generating markdown documentation blocks.
 
     doc = f"""# FastAPI Metrics - Your Custom Setup Guide
 
