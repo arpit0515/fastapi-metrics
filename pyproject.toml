@@ -44,7 +44,7 @@ dev = [
 ]
 
 [project.scripts]
-fastapi-metrics-setup = "fastapi_metrics.cli:main"
+fastapi-metrics = "fastapi_metrics.cli:run_cli"
 
 [project.urls]
 Homepage = "https://github.com/arpit0515/fastapi-metrics"

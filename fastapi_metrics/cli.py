@@ -6,6 +6,7 @@ Interactive setup with customized documentation export
 
 import sys
 import json
+import argparse
 from datetime import datetime
 
 
@@ -525,12 +526,41 @@ Happy tracking! 🚀
     )
 
 
+def run_cli():
+    """CLI entry point with argument parsing."""
+    parser = argparse.ArgumentParser(
+        prog="fastapi-metrics",
+        description="FastAPI Metrics - Zero-config metrics for FastAPI apps",
+        epilog="For more information, visit: https://github.com/arpit0515/fastapi-metrics",
+    )
+    
+    parser.add_argument(
+        "-cli",
+        "--cli",
+        action="store_true",
+        help="Run the interactive setup wizard",
+    )
+    
+    parser.add_argument(
+        "-v",
+        "--version",
+        action="version",
+        version="%(prog)s 0.3.3",
+    )
+    
+    args = parser.parse_args()
+    
+    # If no arguments or -cli flag, run interactive setup
+    if args.cli or len(sys.argv) == 1:
+        try:
+            main()
+        except KeyboardInterrupt:
+            print("\n\nSetup cancelled.")
+            sys.exit(0)
+        except Exception as e:  # pylint: disable=broad-except
+            print(f"\n\n❌ Error: {e}")
+            sys.exit(1)
+
+
 if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        print("\n\nSetup cancelled.")
-        sys.exit(0)
-    except Exception as e:  # pylint: disable=broad-except
-        print(f"\n\n❌ Error: {e}")
-        sys.exit(1)
+    run_cli()
