@@ -78,6 +78,9 @@ class SQLiteStorage(StorageBackend):
         labels: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Store HTTP metric in SQLite."""
+        if self.conn is None:
+            await self.initialize()
+        
         await self.conn.execute(
             """
             INSERT INTO http_requests 
@@ -103,6 +106,9 @@ class SQLiteStorage(StorageBackend):
         labels: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Store custom metric in SQLite."""
+        if self.conn is None:
+            await self.initialize()
+        
         await self.conn.execute(
             """
             INSERT INTO custom_metrics 
@@ -127,6 +133,9 @@ class SQLiteStorage(StorageBackend):
         group_by: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """Query HTTP metrics from SQLite."""
+        if self.conn is None:
+            await self.initialize()
+        
         conditions = ["timestamp BETWEEN ? AND ?"]
         params = [from_time.timestamp(), to_time.timestamp()]
 
@@ -198,6 +207,9 @@ class SQLiteStorage(StorageBackend):
         group_by: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """Query custom metrics from SQLite."""
+        if self.conn is None:
+            await self.initialize()
+        
         conditions = ["timestamp BETWEEN ? AND ?"]
         params = [from_time.timestamp(), to_time.timestamp()]
 
@@ -256,6 +268,9 @@ class SQLiteStorage(StorageBackend):
 
     async def get_endpoint_stats(self) -> List[Dict[str, Any]]:
         """Get aggregated statistics per endpoint."""
+        if self.conn is None:
+            await self.initialize()
+        
         query = """
             SELECT 
                 endpoint,
@@ -288,6 +303,9 @@ class SQLiteStorage(StorageBackend):
 
     async def cleanup_old_data(self, before: datetime) -> int:
         """Remove data older than specified datetime.datetime."""
+        if self.conn is None:
+            await self.initialize()
+        
         timestamp = before.timestamp()
 
         cursor = await self.conn.execute(
