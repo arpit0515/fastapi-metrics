@@ -71,8 +71,9 @@ class Metrics:
         else:
             self.storage = storage
 
-        # Register startup/shutdown events
-        @app.on_event("startup")
+        # Register startup/shutdown handlers using explicit event registration
+        # instead of the decorator `@app.on_event(...)`. This avoids relying
+        # on the decorator form which may be deprecated in some contexts.
         async def startup():
             await self.storage.initialize()
 
@@ -82,13 +83,17 @@ class Metrics:
                 self.health_manager.add_check("memory", MemoryCheck())
                 self.health_manager.add_check("database", DatabaseCheck(self.storage))
 
-                # Add Redis check if using Redis storage
-                if storage.startswith("redis://"):
+                # Add Redis check if using Redis storage. Guard against the
+                # case where `storage` was provided as a StorageBackend
+                # instance (not a string) so `.startswith()` would fail.
+                if (isinstance(storage, str) and storage.startswith("redis://")) or isinstance(self.storage, RedisStorage):
                     self.health_manager.add_check("redis", RedisCheck(self.storage.client))
 
-        @app.on_event("shutdown")
         async def shutdown():
             await self.storage.close()
+
+        app.add_event_handler("startup", startup)
+        app.add_event_handler("shutdown", shutdown)
 
         # Add middleware
         app.add_middleware(MetricsMiddleware, metrics_instance=self)
@@ -310,3 +315,32 @@ class Metrics:
             asyncio.set_event_loop(loop)
 
         loop.run_until_complete(self.track(name, value, **labels))
+
+    async def init(self) -> None:
+        """Initialize storage and (if enabled) register health checks.
+
+        Useful when using `Metrics` outside the ASGI lifecycle (for
+        example in scripts or tests) where the FastAPI startup event is
+        not automatically executed.
+        """
+        await self.storage.initialize()
+
+        if self.health_manager:
+            self.health_manager.add_check("disk", DiskSpaceCheck())
+            self.health_manager.add_check("memory", MemoryCheck())
+            self.health_manager.add_check("database", DatabaseCheck(self.storage))
+            if isinstance(self.storage, RedisStorage):
+                self.health_manager.add_check("redis", RedisCheck(self.storage.client))
+
+    def init_sync(self) -> None:
+        """Synchronous helper to run `init()` from sync code.
+
+        This creates/uses an event loop to run the async initialization.
+        """
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        loop.run_until_complete(self.init())
