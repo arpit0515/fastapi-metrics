@@ -12,7 +12,7 @@ license = {text = "MIT"}
 authors = [
     {name = "Arpit", email = "arpit.thukral@gmail.com"}
 ]
-keywords = ["fastapi", "metrics", "observability", "sqlite", "monitoring"]
+keywords = ["fastapi", "metrics", "observability", "sqlite", "monitoring", "redis", "prometheus", "kubernetes"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
