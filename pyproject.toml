@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fastapi-metrics"
-version = "0.3.7"
+version = "0.3.8"
 description = "Zero-config metrics for FastAPI apps - perfect for solo devs and MVPs"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -26,6 +26,7 @@ classifiers = [
 ]
 
 dependencies = [
+    "rich>=13.0.0",
     "uvicorn>=0.22.0",
     "fastapi>=0.100.0",
     "pydantic>=2.0.0",
@@ -35,6 +36,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    "rich>=13.0.0",
     "uvicorn>=0.22.0",
     "pytest>=7.4.0",
     "pytest-asyncio>=0.21.0",
@@ -44,7 +46,8 @@ dev = [
 ]
 
 [project.scripts]
-fastapi-metrics = "fastapi_metrics.cli:run_cli"
+fastapi-metrics = "fastapi_metrics.cli_query:main"
+fastapi-metrics-setup = "fastapi_metrics.cli:run_cli"
 
 [project.urls]
 Homepage = "https://github.com/arpit0515/fastapi-metrics"
