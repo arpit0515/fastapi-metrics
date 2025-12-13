@@ -1,6 +1,6 @@
 """Core metrics functionality for FastAPI applications."""
 
-from datetime import datetime, timedelta, timezone
+import datetime
 from typing import Any, Optional, Union, Dict
 import asyncio
 import json
@@ -104,21 +104,20 @@ class Metrics:
     def _register_endpoints(self):
         """Register metrics API endpoints."""
         @self.app.get("/metrics")
-        async def get_metrics() -> Dict[str, Any]:  # ← KEY FIX: No 'self' parameter
+        async def get_metrics() -> Dict[str, Any]:
             """Get current metrics snapshot with aggregations"""
             import statistics
             
-            to_time = datetime.utcnow()
-            from_time = to_time - timedelta(hours=24)
+            to_time = datetime.datetime.now(datetime.timezone.utc)
+            from_time = to_time - datetime.timedelta(hours=24)
             
-            # Query storage using outer self reference
-            http_data = await self.storage.query(
-                metric_type="http",
+            # Use the correct storage method names
+            http_data = await self.storage.query_http_metrics(
                 from_time=from_time,
-                to_time=to_time
+                to_time=to_time,
             )
             
-            # Aggregate
+            # Aggregate HTTP metrics
             total_requests = len(http_data)
             status_codes = {}
             endpoints = {}
@@ -173,25 +172,24 @@ class Metrics:
                     "error_rate": round(error_count / total_requests, 3) if total_requests > 0 else 0,
                     "active_requests": self._active_requests,
                 },
-                "timestamp": datetime.utcnow().isoformat() + "Z"
+                "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat() + "Z"
             }
             
             # Add system metrics if enabled
-            if self.system_metrics:  # ← Use self.system_metrics not self.system_collector
+            if self.system_metrics:
                 system_data = await self.system_metrics.collect()
                 metrics["system"] = system_data
             
-            # Add custom metrics
-            custom_data = await self.storage.query(
-                metric_type="custom",
+            # Add custom metrics summary
+            custom_data = await self.storage.query_custom_metrics(
                 from_time=from_time,
-                to_time=to_time
+                to_time=to_time,
             )
             
             if custom_data:
                 custom_summary = {}
                 for record in custom_data:
-                    name = record.get("metric_name", "unknown")
+                    name = record.get("name") or record.get("metric_name", "unknown")
                     value = record.get("value", 0)
                     
                     if name not in custom_summary:
@@ -215,7 +213,7 @@ class Metrics:
                 metrics["custom"] = custom_summary
             
             return metrics
-
+        
         @self.app.get("/metrics/query")
         async def query_metrics(
             metric_type: str = "http",
@@ -239,8 +237,8 @@ class Metrics:
                 group_by: Group results by "hour" or None
             """
             now = datetime.now(timezone.utc)
-            from_time = now - timedelta(hours=from_hours)
-            to_time = now - timedelta(hours=to_hours)
+            from_time = now - datetime.timedelta(hours=from_hours)
+            to_time = now - datetime.timedelta(hours=to_hours)
 
             if metric_type == "http":
                 results = await self.storage.query_http_metrics(
@@ -281,7 +279,7 @@ class Metrics:
         async def cleanup_metrics(hours_to_keep: int = None):
             """Manually trigger cleanup of old metrics data."""
             hours = hours_to_keep or self.retention_hours
-            before = datetime.now(timezone.utc) - timedelta(hours=hours)
+            before = datetime.now(timezone.utc) - datetime.timedelta(hours=hours)
             deleted = await self.storage.cleanup_old_data(before)
             return {
                 "deleted_records": deleted,
@@ -331,7 +329,7 @@ class Metrics:
         async def get_llm_costs(hours: int = 24):
             """Get LLM API costs."""
             now = datetime.now(timezone.utc)
-            from_time = now - timedelta(hours=hours)
+            from_time = now - datetime.timedelta(hours=hours)
 
             costs = await self.storage.query_custom_metrics(
                 from_time=from_time,
