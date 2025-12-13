@@ -1,7 +1,7 @@
 """Core metrics functionality for FastAPI applications."""
 
 from datetime import datetime, timedelta, timezone
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, Dict
 import asyncio
 import json
 from fastapi import FastAPI, Response
@@ -103,14 +103,118 @@ class Metrics:
 
     def _register_endpoints(self):
         """Register metrics API endpoints."""
-
         @self.app.get("/metrics")
-        async def get_metrics():
-            """Get current metrics snapshot."""
-            return {
-                "active_requests": self._active_requests,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+        async def get_metrics() -> Dict[str, Any]:  # ← KEY FIX: No 'self' parameter
+            """Get current metrics snapshot with aggregations"""
+            import statistics
+            
+            to_time = datetime.utcnow()
+            from_time = to_time - timedelta(hours=24)
+            
+            # Query storage using outer self reference
+            http_data = await self.storage.query(
+                metric_type="http",
+                from_time=from_time,
+                to_time=to_time
+            )
+            
+            # Aggregate
+            total_requests = len(http_data)
+            status_codes = {}
+            endpoints = {}
+            latencies = []
+            error_count = 0
+            
+            for record in http_data:
+                status = record.get("status_code", 0)
+                status_codes[status] = status_codes.get(status, 0) + 1
+                
+                endpoint = record.get("endpoint", "unknown")
+                method = record.get("method", "GET")
+                key = f"{endpoint}:{method}"
+                if key not in endpoints:
+                    endpoints[key] = {"count": 0, "latencies": []}
+                endpoints[key]["count"] += 1
+                
+                latency = record.get("latency_ms", 0)
+                latencies.append(latency)
+                endpoints[key]["latencies"].append(latency)
+                
+                if status >= 400:
+                    error_count += 1
+            
+            def percentile(data, p):
+                if not data:
+                    return 0
+                s = sorted(data)
+                idx = int(len(s) * p / 100)
+                return s[min(idx, len(s) - 1)]
+            
+            # Format endpoints
+            requests_per_endpoint = {}
+            for key, data in endpoints.items():
+                ep, meth = key.split(":")
+                if ep not in requests_per_endpoint:
+                    requests_per_endpoint[ep] = {}
+                requests_per_endpoint[ep][meth] = data["count"]
+            
+            # Build response
+            metrics = {
+                "http": {
+                    "total_requests": total_requests,
+                    "requests_per_endpoint": requests_per_endpoint,
+                    "status_codes": status_codes,
+                    "latency": {
+                        "p50": round(percentile(latencies, 50), 2) if latencies else 0,
+                        "p95": round(percentile(latencies, 95), 2) if latencies else 0,
+                        "p99": round(percentile(latencies, 99), 2) if latencies else 0,
+                        "avg": round(statistics.mean(latencies), 2) if latencies else 0,
+                    },
+                    "error_rate": round(error_count / total_requests, 3) if total_requests > 0 else 0,
+                    "active_requests": self._active_requests,
+                },
+                "timestamp": datetime.utcnow().isoformat() + "Z"
             }
+            
+            # Add system metrics if enabled
+            if self.system_metrics:  # ← Use self.system_metrics not self.system_collector
+                system_data = await self.system_metrics.collect()
+                metrics["system"] = system_data
+            
+            # Add custom metrics
+            custom_data = await self.storage.query(
+                metric_type="custom",
+                from_time=from_time,
+                to_time=to_time
+            )
+            
+            if custom_data:
+                custom_summary = {}
+                for record in custom_data:
+                    name = record.get("metric_name", "unknown")
+                    value = record.get("value", 0)
+                    
+                    if name not in custom_summary:
+                        custom_summary[name] = {
+                            "count": 0,
+                            "sum": 0,
+                            "min": float('inf'),
+                            "max": float('-inf')
+                        }
+                    
+                    custom_summary[name]["count"] += 1
+                    custom_summary[name]["sum"] += value
+                    custom_summary[name]["min"] = min(custom_summary[name]["min"], value)
+                    custom_summary[name]["max"] = max(custom_summary[name]["max"], value)
+                
+                for name, data in custom_summary.items():
+                    data["avg"] = round(data["sum"] / data["count"], 2)
+                    data["total"] = data["sum"]
+                    del data["sum"]
+                
+                metrics["custom"] = custom_summary
+            
+            return metrics
 
         @self.app.get("/metrics/query")
         async def query_metrics(
