@@ -198,5 +198,6 @@ async def test_redis_connection_error():
     with pytest.raises(Exception):
         await storage.initialize()
 
+
 if __name__ == "__main__":
     pytest.main([__file__])

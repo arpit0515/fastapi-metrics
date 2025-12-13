@@ -80,7 +80,7 @@ class SQLiteStorage(StorageBackend):
         """Store HTTP metric in SQLite."""
         if self.conn is None:
             await self.initialize()
-        
+
         await self.conn.execute(
             """
             INSERT INTO http_requests 
@@ -108,7 +108,7 @@ class SQLiteStorage(StorageBackend):
         """Store custom metric in SQLite."""
         if self.conn is None:
             await self.initialize()
-        
+
         await self.conn.execute(
             """
             INSERT INTO custom_metrics 
@@ -135,7 +135,7 @@ class SQLiteStorage(StorageBackend):
         """Query HTTP metrics from SQLite."""
         if self.conn is None:
             await self.initialize()
-        
+
         conditions = ["timestamp BETWEEN ? AND ?"]
         params = [from_time.timestamp(), to_time.timestamp()]
 
@@ -209,7 +209,7 @@ class SQLiteStorage(StorageBackend):
         """Query custom metrics from SQLite."""
         if self.conn is None:
             await self.initialize()
-        
+
         conditions = ["timestamp BETWEEN ? AND ?"]
         params = [from_time.timestamp(), to_time.timestamp()]
 
@@ -270,7 +270,7 @@ class SQLiteStorage(StorageBackend):
         """Get aggregated statistics per endpoint."""
         if self.conn is None:
             await self.initialize()
-        
+
         query = """
             SELECT 
                 endpoint,
@@ -305,7 +305,7 @@ class SQLiteStorage(StorageBackend):
         """Remove data older than specified datetime.datetime."""
         if self.conn is None:
             await self.initialize()
-        
+
         timestamp = before.timestamp()
 
         cursor = await self.conn.execute(

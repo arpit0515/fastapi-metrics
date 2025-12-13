@@ -5,11 +5,11 @@ import py_compile
 import sys
 
 test_files = [
-    '/workspaces/fastapi-metrics/tests/test_core.py',
-    '/workspaces/fastapi-metrics/tests/test_phase3.py',
-    '/workspaces/fastapi-metrics/tests/test_health.py',
-    '/workspaces/fastapi-metrics/tests/test_redis.py',
-    '/workspaces/fastapi-metrics/tests/test_storage.py',
+    "/workspaces/fastapi-metrics/tests/test_core.py",
+    "/workspaces/fastapi-metrics/tests/test_phase3.py",
+    "/workspaces/fastapi-metrics/tests/test_health.py",
+    "/workspaces/fastapi-metrics/tests/test_redis.py",
+    "/workspaces/fastapi-metrics/tests/test_storage.py",
 ]
 
 errors = False

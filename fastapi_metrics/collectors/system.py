@@ -1,4 +1,5 @@
 """System metrics collection (CPU, Memory, Disk)."""
+
 import time
 from typing import Any, Dict
 import psutil
@@ -18,9 +19,9 @@ class SystemMetricsCollector:
             "memory_percent": round(psutil.virtual_memory().percent, 2),
             "memory_used_mb": round(psutil.virtual_memory().used / (1024 * 1024), 2),
             "memory_available_mb": round(psutil.virtual_memory().available / (1024 * 1024), 2),
-            "disk_percent": round(psutil.disk_usage('/').percent, 2),
-            "disk_used_gb": round(psutil.disk_usage('/').used / (1024 ** 3), 2),
-            "disk_free_gb": round(psutil.disk_usage('/').free / (1024 ** 3), 2),
+            "disk_percent": round(psutil.disk_usage("/").percent, 2),
+            "disk_used_gb": round(psutil.disk_usage("/").used / (1024**3), 2),
+            "disk_free_gb": round(psutil.disk_usage("/").free / (1024**3), 2),
             "uptime_seconds": int(time.time() - self.start_time),
         }
 
