@@ -236,7 +236,7 @@ class Metrics:
                 name: Filter by metric name (custom only)
                 group_by: Group results by "hour" or None
             """
-            now = datetime.now(timezone.utc)
+            now = datetime.datetime.now(datetime.timezone.utc)
             from_time = now - datetime.timedelta(hours=from_hours)
             to_time = now - datetime.timedelta(hours=to_hours)
 
@@ -271,7 +271,7 @@ class Metrics:
             """Get aggregated statistics per endpoint."""
             stats = await self.storage.get_endpoint_stats()
             return {
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                 "endpoints": stats,
             }
 
@@ -279,7 +279,7 @@ class Metrics:
         async def cleanup_metrics(hours_to_keep: int = None):
             """Manually trigger cleanup of old metrics data."""
             hours = hours_to_keep or self.retention_hours
-            before = datetime.now(timezone.utc) - datetime.timedelta(hours=hours)
+            before = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=hours)
             deleted = await self.storage.cleanup_old_data(before)
             return {
                 "deleted_records": deleted,
@@ -318,7 +318,7 @@ class Metrics:
             async def get_system_metrics():
                 """Get current system metrics."""
                 return {
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                     "cpu_percent": self.system_metrics.get_cpu_percent(),
                     "memory": self.system_metrics.get_memory_stats(),
                     "disk": self.system_metrics.get_disk_stats(),
@@ -328,7 +328,7 @@ class Metrics:
         @self.app.get("/metrics/costs")
         async def get_llm_costs(hours: int = 24):
             """Get LLM API costs."""
-            now = datetime.now(timezone.utc)
+            now = datetime.datetime.now(datetime.timezone.utc)
             from_time = now - datetime.timedelta(hours=hours)
 
             costs = await self.storage.query_custom_metrics(
@@ -399,7 +399,7 @@ class Metrics:
             await metrics.track("signups", 1, source="organic")
         """
         await self.storage.store_custom_metric(
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.datetime.now(datetime.timezone.utc),
             name=name,
             value=value,
             labels=labels if labels else None,
