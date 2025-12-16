@@ -86,6 +86,49 @@ class RedisStorage(StorageBackend):
         # Expire individual metrics after 7 days
         await self.client.expire(metric_id, 604800)
 
+    async def store_error(
+        self,
+        timestamp: datetime,
+        endpoint: str,
+        method: str,
+        error_type: str,
+        error_message: str,
+        error_hash: str,
+        stack_trace: str,
+        user_agent: Optional[str] = None,
+    ):
+        """Store error in Redis sorted sets and hashes."""
+        ts = int(timestamp.timestamp())
+
+        # Store in sorted set by timestamp
+        error_key = f"error:{error_hash}"
+        await self.client.zadd("errors:timeline", {error_key: ts})
+
+        # Store error details in hash (with deduplication)
+        error_data = {
+            "endpoint": endpoint,
+            "method": method,
+            "error_type": error_type,
+            "error_message": error_message,
+            "stack_trace": stack_trace,
+            "first_seen": ts,
+            "last_seen": ts,
+            "count": 1,
+        }
+
+        # Check if error exists
+        exists = await self.client.exists(error_key)
+        if exists:
+            # Increment count and update last_seen
+            await self.client.hincrby(error_key, "count", 1)
+            await self.client.hset(error_key, "last_seen", ts)
+        else:
+            # New error
+            await self.client.hset(error_key, mapping=error_data)
+
+        # Set expiry based on retention
+        await self.client.expire(error_key, 86400 * 7)  # 7 days
+
     async def store_custom_metric(
         self,
         timestamp: datetime,
@@ -189,6 +232,28 @@ class RedisStorage(StorageBackend):
             ]
 
         return metrics
+
+    async def query_errors(
+        self, from_time: datetime, to_time: datetime, endpoint: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Query errors from Redis."""
+        from_ts = int(from_time.timestamp())
+        to_ts = int(to_time.timestamp())
+
+        # Get error keys in time range
+        error_keys = await self.client.zrangebyscore("errors:timeline", from_ts, to_ts)
+
+        results = []
+        for key in error_keys:
+            error_data = await self.client.hgetall(key)
+            if endpoint and error_data.get("endpoint") != endpoint:
+                continue
+
+            # Convert count to int
+            error_data["count"] = int(error_data.get("count", 1))
+            results.append(error_data)
+
+        return results
 
     async def query_custom_metrics(
         self,

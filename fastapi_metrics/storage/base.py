@@ -32,6 +32,21 @@ class StorageBackend(ABC):
         return 1
 
     @abstractmethod
+    async def store_error(
+        self,
+        timestamp: datetime,
+        endpoint: str,
+        method: str,
+        error_type: str,
+        error_message: str,
+        error_hash: str,
+        stack_trace: str,
+        user_agent: Optional[str] = None,
+    ) -> None:
+        """Store error details."""
+        return 1
+
+    @abstractmethod
     async def store_custom_metric(
         self,
         timestamp: datetime,
@@ -52,6 +67,13 @@ class StorageBackend(ABC):
         group_by: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """Query HTTP metrics within time range."""
+        return 1
+
+    @abstractmethod
+    async def query_errors(
+        self, from_time: datetime, to_time: datetime, endpoint: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Query errors with optional filters."""
         return 1
 
     @abstractmethod

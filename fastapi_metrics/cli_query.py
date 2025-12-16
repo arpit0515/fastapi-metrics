@@ -20,15 +20,18 @@ async def get_storage(db_path: str):
     """Initialize storage backend from db path."""
     if db_path.startswith("redis://"):
         from fastapi_metrics.storage.redis import RedisStorage
+
         storage = RedisStorage(db_path)
     elif db_path.startswith("sqlite://") or db_path.endswith(".db"):
         from fastapi_metrics.storage.sqlite import SQLiteStorage
+
         path = db_path.replace("sqlite://", "")
         storage = SQLiteStorage(path)
     else:
         from fastapi_metrics.storage.sqlite import SQLiteStorage
+
         storage = SQLiteStorage(db_path)
-    
+
     await storage.initialize()
     return storage
 
@@ -45,26 +48,26 @@ def format_number(num: float) -> str:
 async def cmd_show(args):
     """Show current metrics snapshot."""
     storage = await get_storage(args.db)
-    
+
     try:
         # Get last 24h of data
         to_time = datetime.utcnow()
         from_time = to_time - timedelta(hours=24)
-        
+
         http_data = await storage.query_http_metrics(from_time=from_time, to_time=to_time)
-        
+
         # Calculate stats
         total = len(http_data)
         errors = sum(1 for r in http_data if r.get("status_code", 0) >= 400)
         latencies = [r.get("latency_ms", 0) for r in http_data]
-        
+
         def percentile(data, p):
             if not data:
                 return 0
             s = sorted(data)
             idx = int(len(s) * p / 100)
             return s[min(idx, len(s) - 1)]
-        
+
         if args.json:
             result = {
                 "total_requests": total,
@@ -77,13 +80,13 @@ async def cmd_show(args):
             table = Table(title="FastAPI Metrics", box=box.ROUNDED)
             table.add_column("Metric", style="cyan")
             table.add_column("Value", style="green")
-            
+
             table.add_row("Total Requests", format_number(total))
             table.add_row("Error Rate", f"{(errors/total*100):.1f}%" if total > 0 else "0%")
             table.add_row("P50 Latency", f"{percentile(latencies, 50):.1f}ms")
             table.add_row("P95 Latency", f"{percentile(latencies, 95):.1f}ms")
             table.add_row("P99 Latency", f"{percentile(latencies, 99):.1f}ms")
-            
+
             console.print(table)
     finally:
         await storage.close()
@@ -92,11 +95,11 @@ async def cmd_show(args):
 async def cmd_query(args):
     """Query specific metrics."""
     storage = await get_storage(args.db)
-    
+
     try:
         to_time = datetime.utcnow()
         from_time = to_time - timedelta(hours=args.from_hours)
-        
+
         if args.metric_type == "http":
             results = await storage.query_http_metrics(
                 from_time=from_time,
@@ -110,7 +113,7 @@ async def cmd_query(args):
                 to_time=to_time,
                 name=args.name,
             )
-        
+
         if args.json:
             print(json.dumps(results, indent=2, default=str))
         else:
@@ -123,15 +126,15 @@ async def cmd_query(args):
                         grouped[key] = {"count": 0, "sum": 0}
                     grouped[key]["count"] += 1
                     grouped[key]["sum"] += r.get("value", 0)
-                
+
                 table = Table(title=f"Metric: {args.name}", box=box.ROUNDED)
                 table.add_column(args.group_by.capitalize(), style="cyan")
                 table.add_column("Total", style="green", justify="right")
                 table.add_column("Count", style="yellow", justify="right")
-                
+
                 for key, data in sorted(grouped.items(), key=lambda x: x[1]["sum"], reverse=True):
-                    table.add_row(str(key), f"${data['sum']:,.2f}", str(data['count']))
-                
+                    table.add_row(str(key), f"${data['sum']:,.2f}", str(data["count"]))
+
                 console.print(table)
             else:
                 console.print(f"[green]Found {len(results)} records[/green]")
@@ -144,17 +147,17 @@ async def cmd_query(args):
 async def cmd_costs(args):
     """Show LLM costs breakdown."""
     storage = await get_storage(args.db)
-    
+
     try:
         to_time = datetime.utcnow()
         from_time = to_time - timedelta(hours=args.from_hours)
-        
+
         costs = await storage.query_custom_metrics(
             from_time=from_time,
             to_time=to_time,
             name="llm_cost",
         )
-        
+
         # Aggregate by provider
         by_provider = {}
         for cost in costs:
@@ -162,10 +165,10 @@ async def cmd_costs(args):
             if provider not in by_provider:
                 by_provider[provider] = 0
             by_provider[provider] += cost.get("value", 0)
-        
+
         total_cost = sum(by_provider.values())
         monthly_estimate = total_cost * (720 / args.from_hours)
-        
+
         if args.json:
             result = {
                 "total_cost": round(total_cost, 2),
@@ -178,14 +181,17 @@ async def cmd_costs(args):
             table.add_column("Provider", style="cyan")
             table.add_column("Cost", style="green", justify="right")
             table.add_column("Monthly Est.", style="yellow", justify="right")
-            
+
             for provider, cost in sorted(by_provider.items(), key=lambda x: x[1], reverse=True):
                 est = cost * (720 / args.from_hours)
                 table.add_row(provider.capitalize(), f"${cost:.2f}", f"${est:.2f}")
-            
-            table.add_row("[bold]Total[/bold]", f"[bold]${total_cost:.2f}[/bold]", 
-                         f"[bold]${monthly_estimate:.2f}[/bold]")
-            
+
+            table.add_row(
+                "[bold]Total[/bold]",
+                f"[bold]${total_cost:.2f}[/bold]",
+                f"[bold]${monthly_estimate:.2f}[/bold]",
+            )
+
             console.print(table)
     finally:
         await storage.close()
@@ -194,22 +200,23 @@ async def cmd_costs(args):
 async def cmd_export(args):
     """Export metrics to file."""
     storage = await get_storage(args.db)
-    
+
     try:
         to_time = datetime.utcnow()
         from_time = to_time - timedelta(hours=args.from_hours)
-        
+
         http_data = await storage.query_http_metrics(from_time=from_time, to_time=to_time)
-        
+
         if args.format == "csv":
             import csv
+
             with open(args.output, "w", newline="") as f:
                 if http_data:
                     writer = csv.DictWriter(f, fieldnames=http_data[0].keys())
                     writer.writeheader()
                     writer.writerows(http_data)
             console.print(f"[green]✓ Exported {len(http_data)} records to {args.output}[/green]")
-        
+
         elif args.format == "json":
             with open(args.output, "w") as f:
                 json.dump(http_data, f, indent=2, default=str)
@@ -221,40 +228,42 @@ async def cmd_export(args):
 async def cmd_endpoints(args):
     """Show endpoint statistics."""
     storage = await get_storage(args.db)
-    
+
     try:
         stats = await storage.get_endpoint_stats()
-        
+
         # Flatten and sort
         rows = []
         for endpoint, methods in stats.items():
             for method, data in methods.items():
-                rows.append({
-                    "endpoint": endpoint,
-                    "method": method,
-                    "count": data.get("count", 0),
-                    "p99": data.get("p99_latency_ms", 0),
-                })
-        
+                rows.append(
+                    {
+                        "endpoint": endpoint,
+                        "method": method,
+                        "count": data.get("count", 0),
+                        "p99": data.get("p99_latency_ms", 0),
+                    }
+                )
+
         rows.sort(key=lambda x: x[args.sort_by], reverse=True)
-        
+
         if args.json:
-            print(json.dumps(rows[:args.top], indent=2))
+            print(json.dumps(rows[: args.top], indent=2))
         else:
             table = Table(title=f"Top {args.top} Endpoints", box=box.ROUNDED)
             table.add_column("Endpoint", style="cyan")
             table.add_column("Method", style="blue")
             table.add_column("Count", style="green", justify="right")
             table.add_column("P99 (ms)", style="yellow", justify="right")
-            
-            for row in rows[:args.top]:
+
+            for row in rows[: args.top]:
                 table.add_row(
                     row["endpoint"],
                     row["method"],
                     format_number(row["count"]),
                     f"{row['p99']:.1f}",
                 )
-            
+
             console.print(table)
     finally:
         await storage.close()
@@ -266,16 +275,16 @@ def main():
         prog="fastapi-metrics",
         description="FastAPI Metrics CLI - Query and manage metrics",
     )
-    
+
     parser.add_argument("-v", "--version", action="version", version="0.3.0")
-    
+
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
-    
+
     # Show command
     show_parser = subparsers.add_parser("show", help="Show current metrics snapshot")
     show_parser.add_argument("--db", default="metrics.db", help="Database path")
     show_parser.add_argument("--json", action="store_true", help="Output as JSON")
-    
+
     # Query command
     query_parser = subparsers.add_parser("query", help="Query specific metrics")
     query_parser.add_argument("--db", default="metrics.db", help="Database path")
@@ -286,35 +295,36 @@ def main():
     query_parser.add_argument("--from-hours", type=int, default=24)
     query_parser.add_argument("--group-by", help="Group by label")
     query_parser.add_argument("--json", action="store_true", help="Output as JSON")
-    
+
     # Costs command
     costs_parser = subparsers.add_parser("costs", help="Show LLM costs")
     costs_parser.add_argument("--db", default="metrics.db", help="Database path")
     costs_parser.add_argument("--from-hours", type=int, default=24)
     costs_parser.add_argument("--json", action="store_true", help="Output as JSON")
-    
+
     # Export command
     export_parser = subparsers.add_parser("export", help="Export metrics to file")
     export_parser.add_argument("--db", default="metrics.db", help="Database path")
     export_parser.add_argument("--format", default="csv", choices=["csv", "json"])
     export_parser.add_argument("--output", default="metrics.csv", help="Output file")
     export_parser.add_argument("--from-hours", type=int, default=24)
-    
+
     # Endpoints command
     endpoints_parser = subparsers.add_parser("endpoints", help="Show endpoint stats")
     endpoints_parser.add_argument("--db", default="metrics.db", help="Database path")
     endpoints_parser.add_argument("--sort-by", default="p99", choices=["count", "p99"])
     endpoints_parser.add_argument("--top", type=int, default=10)
     endpoints_parser.add_argument("--json", action="store_true", help="Output as JSON")
-    
+
     # Setup wizard (your existing code)
     setup_parser = subparsers.add_parser("setup", help="Run interactive setup wizard")
-    
+
     args = parser.parse_args()
-    
+
     if not args.command or args.command == "setup":
         # Run your existing setup wizard
         from fastapi_metrics.cli import main as setup_main
+
         setup_main()
     else:
         # Run async commands
@@ -325,7 +335,7 @@ def main():
             "export": cmd_export,
             "endpoints": cmd_endpoints,
         }
-        
+
         try:
             asyncio.run(commands[args.command](args))
         except KeyboardInterrupt:

@@ -61,6 +61,25 @@ class SQLiteStorage(StorageBackend):
             "CREATE INDEX IF NOT EXISTS idx_custom_name ON custom_metrics(name)"
         )
 
+        await self.conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS errors (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TEXT NOT NULL,
+                endpoint TEXT NOT NULL,
+                method TEXT NOT NULL,
+                error_type TEXT NOT NULL,
+                error_message TEXT,
+                error_hash TEXT NOT NULL,
+                stack_trace TEXT,
+                user_agent TEXT,
+                count INTEGER DEFAULT 1,
+                first_seen TEXT NOT NULL,
+                last_seen TEXT NOT NULL
+            )
+        """
+        )
+
         await self.conn.commit()
 
     async def close(self) -> None:

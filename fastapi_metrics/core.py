@@ -5,11 +5,13 @@ from typing import Any, Optional, Union, Dict
 import asyncio
 import json
 import statistics
+import hashlib
 from fastapi import FastAPI, Response
 from .storage.base import StorageBackend
 from .storage.redis import RedisStorage
 from .storage.memory import MemoryStorage
 from .storage.sqlite import SQLiteStorage
+from .storage.custom import PostgreSQLStorage, DynamoDBStorage
 from .middleware import MetricsMiddleware
 from .health.endpoints import HealthManager
 from .health.checks import RedisCheck, DiskSpaceCheck, MemoryCheck, DatabaseCheck
@@ -30,6 +32,7 @@ class Metrics:
         enable_cleanup: bool = True,
         enable_health_checks: bool = False,
         enable_system_metrics: bool = False,
+        enable_error_tracking: bool = True,
         alert_webhook_url: Optional[str] = None,
     ):
         """
@@ -57,19 +60,35 @@ class Metrics:
         self.system_metrics = SystemMetricsCollector(self) if enable_system_metrics else None
         self.alert_manager = AlertManager(self, webhook_url=alert_webhook_url)
 
-        # Initialize storage backend
+        # Initialize storage
         if isinstance(storage, str):
             if storage.startswith("memory://"):
                 self.storage = MemoryStorage()
             elif storage.startswith("sqlite://"):
-                db_path = storage.replace("sqlite://", "")
-                self.storage = SQLiteStorage(db_path)
+                self.storage = SQLiteStorage(storage.replace("sqlite://", ""))
             elif storage.startswith("redis://"):
                 self.storage = RedisStorage(storage)
+            elif storage.startswith("postgresql://"):
+                self.storage = PostgreSQLStorage(storage)
+            elif storage.startswith("dynamodb://"):
+                # Format: dynamodb://table_name?region=us-east-1
+                from urllib.parse import urlparse, parse_qs
+
+                parsed = urlparse(storage)
+                table = parsed.netloc
+                region = parse_qs(parsed.query).get("region", ["us-east-1"])[0]
+                self.storage = DynamoDBStorage(table, region)
             else:
-                raise ValueError(f"Unknown storage backend: {storage}")
+                raise ValueError(f"Unknown storage: {storage}")
         else:
+            # Custom storage instance
             self.storage = storage
+
+        self.enable_error_tracking = enable_error_tracking
+
+        app.add_middleware(
+            MetricsMiddleware, metrics_instance=self, track_errors=enable_error_tracking
+        )
 
         # Register startup/shutdown handlers using explicit event registration
         # instead of the decorator `@app.on_event(...)`. This avoids relying
@@ -450,3 +469,30 @@ class Metrics:
             asyncio.set_event_loop(loop)
 
         loop.run_until_complete(self.init())
+
+    async def _store_error(
+        self,
+        timestamp: datetime,
+        endpoint: str,
+        method: str,
+        error_type: str,
+        error_message: str,
+        stack_trace: str,
+        user_agent: Optional[str] = None,
+    ):
+        """Store error details."""
+        # Create hash for deduplication
+        error_hash = hashlib.md5(
+            f"{endpoint}:{error_type}:{stack_trace[:200]}".encode()
+        ).hexdigest()[:12]
+
+        await self.storage.store_error(
+            timestamp=timestamp,
+            endpoint=endpoint,
+            method=method,
+            error_type=error_type,
+            error_message=error_message,
+            error_hash=error_hash,
+            stack_trace=stack_trace,
+            user_agent=user_agent,
+        )
