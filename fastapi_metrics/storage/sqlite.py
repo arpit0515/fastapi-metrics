@@ -321,7 +321,7 @@ class SQLiteStorage(StorageBackend):
         ]
 
     async def cleanup_old_data(self, before: datetime) -> int:
-        """Remove data older than specified datetime.datetime."""
+        """Remove data older than specified datetime."""
         if self.conn is None:
             await self.initialize()
 
@@ -337,6 +337,110 @@ class SQLiteStorage(StorageBackend):
         )
         custom_deleted = cursor.rowcount
 
+        cursor = await self.conn.execute(
+            "DELETE FROM errors WHERE timestamp < ?", (before.isoformat(),)
+        )
+        errors_deleted = cursor.rowcount
+
         await self.conn.commit()
 
-        return http_deleted + custom_deleted
+        return http_deleted + custom_deleted + errors_deleted
+
+    async def store_error(
+        self,
+        timestamp: datetime,
+        endpoint: str,
+        method: str,
+        error_type: str,
+        error_message: str,
+        error_hash: str,
+        stack_trace: str,
+        user_agent: Optional[str] = None,
+    ) -> None:
+        """Store error details in SQLite."""
+        if self.conn is None:
+            await self.initialize()
+
+        # Check if error already exists
+        cursor = await self.conn.execute(
+            "SELECT id, count FROM errors WHERE error_hash = ?", (error_hash,)
+        )
+        existing = await cursor.fetchone()
+
+        if existing:
+            # Update existing error
+            await self.conn.execute(
+                """
+                UPDATE errors 
+                SET count = count + 1, last_seen = ?
+                WHERE error_hash = ?
+                """,
+                (timestamp.isoformat(), error_hash),
+            )
+        else:
+            # Insert new error
+            await self.conn.execute(
+                """
+                INSERT INTO errors 
+                (timestamp, endpoint, method, error_type, error_message, 
+                error_hash, stack_trace, user_agent, first_seen, last_seen)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    timestamp.isoformat(),
+                    endpoint,
+                    method,
+                    error_type,
+                    error_message,
+                    error_hash,
+                    stack_trace,
+                    user_agent,
+                    timestamp.isoformat(),
+                    timestamp.isoformat(),
+                ),
+            )
+
+        await self.conn.commit()
+
+    async def query_errors(
+        self, from_time: datetime, to_time: datetime, endpoint: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Query errors from SQLite."""
+        if self.conn is None:
+            await self.initialize()
+
+        conditions = ["timestamp BETWEEN ? AND ?"]
+        params = [from_time.isoformat(), to_time.isoformat()]
+
+        if endpoint:
+            conditions.append("endpoint = ?")
+            params.append(endpoint)
+
+        where_clause = " AND ".join(conditions)
+        query = f"""
+            SELECT timestamp, endpoint, method, error_type, error_message,
+                error_hash, stack_trace, user_agent, count, first_seen, last_seen
+            FROM errors
+            WHERE {where_clause}
+            ORDER BY last_seen DESC
+        """
+
+        cursor = await self.conn.execute(query, params)
+        rows = await cursor.fetchall()
+
+        return [
+            {
+                "timestamp": row[0],
+                "endpoint": row[1],
+                "method": row[2],
+                "error_type": row[3],
+                "error_message": row[4],
+                "error_hash": row[5],
+                "stack_trace": row[6],
+                "user_agent": row[7],
+                "count": row[8],
+                "first_seen": row[9],
+                "last_seen": row[10],
+            }
+            for row in rows
+        ]
