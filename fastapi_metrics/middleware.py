@@ -11,9 +11,12 @@ from starlette.middleware.base import BaseHTTPMiddleware
 class MetricsMiddleware(BaseHTTPMiddleware):
     """Middleware to track HTTP request metrics."""
 
-    def __init__(self, app: Any, metrics_instance: Any) -> None:
+    def __init__(self, app: Any, metrics_instance: Any, error_reporting: bool = False) -> None:
         super().__init__(app)
         self.metrics = metrics_instance
+        # If you want to track errors separately
+        # Setting this to true will actually `raise` exceptions after logging them
+        self.error_reporting = error_reporting
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """Track request metrics."""
@@ -38,7 +41,7 @@ class MetricsMiddleware(BaseHTTPMiddleware):
                 status_code=status_code,
                 latency_ms=latency_ms,
             )
-            # pylint: enable=protected-access
+            # pylint: disable=protected-access
 
             self.metrics._active_requests -= 1
             return response
@@ -57,7 +60,7 @@ class MetricsMiddleware(BaseHTTPMiddleware):
                 stack_trace=traceback.format_exc(),
                 user_agent=request.headers.get("user-agent"),
             )
-            # pylint: enable=protected-access
+            # pylint: disable=protected-access
             await self.metrics._store_http_metric(
                 timestamp=datetime.datetime.now(datetime.timezone.utc),
                 endpoint=request.url.path,
@@ -65,6 +68,7 @@ class MetricsMiddleware(BaseHTTPMiddleware):
                 status_code=500,
                 latency_ms=latency_ms,
             )
-            # pylint: enable=protected-access
-            # Re-raise so FastAPI's exception handlers take over
-            raise
+            # pylint: disable=protected-access
+            if self.error_reporting:
+                # Re-raise so FastAPI's exception handlers take over
+                raise

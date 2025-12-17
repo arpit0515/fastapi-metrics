@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fastapi-metrics"
-version = "0.3.8"
+version = "0.3.9"
 description = "Zero-config metrics for FastAPI apps - perfect for solo devs and MVPs"
 readme = "README.md"
 requires-python = ">=3.8"
