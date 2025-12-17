@@ -88,8 +88,6 @@ fastapi-metrics/
 - ✅ `GET /metrics/endpoints` - Per-endpoint stats
 - ✅ `GET /metrics/export?format=csv|prometheus`
 
-**Deliverable**: Basic HTTP metrics with SQLite storage and query API
-
 ---
 
 ## Phase 2: Health Checks & System Metrics ⏳
@@ -120,8 +118,6 @@ fastapi-metrics/
 - ✅ Add deployment examples for multi-instance setups
 - ✅ Position as "lightweight alternative to Prometheus that scales"
 
-**Deliverable**: Production-ready health checks for Kubernetes
-
 ---
 
 ## Phase 3: Business Metrics & Cost Tracking ⏳
@@ -140,8 +136,6 @@ fastapi-metrics/
 - ✅ Cost calculation (using current pricing)
 - ✅ Cost by model/endpoint
 - ✅ `GET /metrics/costs` endpoint
-
-**Deliverable**: Track custom business KPIs and LLM costs
 
 ---
 
@@ -162,7 +156,6 @@ fastapi-metrics/
 - [ ] CSV export
 - [ ] JSON export with timestamps
 
-**Deliverable**: Production-grade data management
 
 ---
 
@@ -187,8 +180,6 @@ fastapi-metrics/
 - [ ] Unit tests (80%+ coverage)
 - [ ] Integration tests
 - [ ] Performance benchmarks
-
-**Deliverable**: Production-ready library with docs
 
 ---
 
@@ -316,39 +307,4 @@ poetry run pytest
 
 ---
 
-## 🧩 Advanced Considerations & Good-to-Have Enhancements
-
-This project aims to provide simple, zero-config metrics for small applications, but as usage grows, there are several important operational considerations worth keeping in mind. These are not required for most small projects, but they become valuable as traffic increases or deployments become more complex.
-
-The following items are good to consider or have in the future and help set expectations around the current scope and limitations of the library.
-
-1. **Concurrency & Storage Safety**: 
-In high-concurrency FastAPI apps, multiple requests may update metrics simultaneously.
-SQLite and in-memory backends may require additional locking or batching to avoid race conditions.
-For distributed or multi-process deployments, Redis backend is recommended.
-
-2. **Storage Growth & Data Retention**:
-Metrics can grow quickly as traffic increases. Long-term retention or exporting large time ranges may lead to slow queries or excessive storage usage. In the future, adding retention policies or automatic cleanup would help limit data size.
-
-3. **Metric Aggregation (Future Optimization)**: Today, metrics are stored at the raw event level. Aggregating older data (e.g., hourly or daily buckets) would reduce storage load and speed up queries. This is especially useful for dashboards or long-term trend analysis.
-
-4. **Multi-Instance / Distributed Deployment Considerations**: In setups with multiple app instances (Gunicorn workers, Kubernetes pods, containers), metrics may fragment across instances when using SQLite or in-memory storage. Redis provides shared storage, but users should be aware of potential consistency nuances.
-
-5. **Query Edge Cases**: Time-series queries may return empty results when no data exists for the given range. Different timezones or clock drift across servers can lead to slight timestamp inconsistencies. Future improvements may include improved bucket alignment and timezone handling.
-
-6. **Error Handling in Metrics Pipeline**: If storage becomes unavailable (disk full, Redis offline), the metric system should fail gracefully. Requests should never break due to metrics collection. Logging or fallback behavior may be added in the future.
-
-7. **Performance Overhead**: Middleware introduces small latency overhead on every request. For extremely high-traffic apps, sampling (recording 1 in N requests) may be useful. A future enhancement may include toggleable "low-overhead" modes.
-
-8. **Metric Labeling & PII Safety**: Users should avoid putting personally identifiable information (PII) into metric labels. Labels are often exported or visualized, so they should remain anonymous and limited in variety.
-
-9. **Background Tasks, Streaming, and WebSockets**: FastAPI supports non-standard request patterns such as: - streaming responses
-- WebSockets
-- background tasks
-HTTP middleware does not capture metrics for these cases by default. Future versions may extend support or provide recommended patterns.
-
-10. **Large Exports & Dashboard Consumption**: The /metrics/export endpoint may become slow if the metric history is large. Pagination, filtering, or pre-aggregated export formats may be considered in future releases.
-
-11. **System Metrics Frequency & Overhead**: If system resource metrics (CPU/memory/disk) are enabled in future versions, sampling frequency will matter. Too frequent polling may add overhead; too infrequent may lose granularity.
-
-12. **Optional Dashboard / UI**: The library currently focuses on collecting and serving metrics, not visualizing them. A minimal built-in dashboard or a plug-and-play UI might be added later to improve usability.
+![Check errors in terminal](image.png)
