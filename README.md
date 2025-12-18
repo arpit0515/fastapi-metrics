@@ -308,3 +308,6 @@ poetry run pytest
 ---
 
 ![Check errors in terminal](image.png)
+
+
+![Check status of app](image-1.png)
