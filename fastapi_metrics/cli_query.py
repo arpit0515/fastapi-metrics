@@ -268,6 +268,7 @@ async def cmd_endpoints(args):
     finally:
         await storage.close()
 
+
 async def cmd_errors(args):
     """Show error logs."""
     storage = await get_storage(args.db)
@@ -277,9 +278,7 @@ async def cmd_errors(args):
         from_time = to_time - timedelta(hours=args.from_hours)
 
         errors = await storage.query_errors(
-            from_time=from_time,
-            to_time=to_time,
-            endpoint=args.endpoint
+            from_time=from_time, to_time=to_time, endpoint=args.endpoint
         )
 
         if args.json:
@@ -291,33 +290,34 @@ async def cmd_errors(args):
             table.add_column("Error", style="red")
             table.add_column("Count", style="yellow", justify="right")
 
-            for error in errors[:args.limit]:
+            for error in errors[: args.limit]:
                 timestamp = error.get("last_seen", error.get("timestamp", ""))
                 endpoint = error.get("endpoint", "")
                 error_type = error.get("error_type", "")
                 error_msg = error.get("error_message", "")
                 count = error.get("count", 1)
-                
+
                 # Truncate long messages
-                display_error = f"{error_type}: {error_msg[:50]}..." if len(error_msg) > 50 else f"{error_type}: {error_msg}"
-                
-                table.add_row(
-                    str(timestamp)[:19],
-                    endpoint,
-                    display_error,
-                    str(count)
+                display_error = (
+                    f"{error_type}: {error_msg[:50]}..."
+                    if len(error_msg) > 50
+                    else f"{error_type}: {error_msg}"
                 )
 
+                table.add_row(str(timestamp)[:19], endpoint, display_error, str(count))
+
             console.print(table)
-            
+
             if errors and args.detail:
                 console.print("\n[bold]Detailed view of most recent error:[/bold]")
                 latest = errors[0]
-                console.print(f"[cyan]Endpoint:[/cyan] {latest.get('method')} {latest.get('endpoint')}")
+                console.print(
+                    f"[cyan]Endpoint:[/cyan] {latest.get('method')} {latest.get('endpoint')}"
+                )
                 console.print(f"[cyan]Error:[/cyan] {latest.get('error_type')}")
                 console.print(f"[cyan]Message:[/cyan] {latest.get('error_message')}")
                 console.print(f"[cyan]Count:[/cyan] {latest.get('count')}")
-                if latest.get('stack_trace'):
+                if latest.get("stack_trace"):
                     console.print(f"\n[cyan]Stack Trace:[/cyan]\n{latest.get('stack_trace')}")
     finally:
         await storage.close()

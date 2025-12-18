@@ -385,31 +385,23 @@ class Metrics:
                 content=output,
                 media_type="text/plain; version=0.0.4",
             )
-        
+
         @self.app.get("/metrics/errors")
         async def get_errors(
-            from_hours: int = 24,
-            endpoint: Optional[str] = None,
-            limit: int = 100
+            from_hours: int = 24, endpoint: Optional[str] = None, limit: int = 100
         ):
             """Get error logs with optional filtering."""
             now = datetime.datetime.now(datetime.timezone.utc)
             from_time = now - datetime.timedelta(hours=from_hours)
-            
+
             errors = await self.storage.query_errors(
-                from_time=from_time,
-                to_time=now,
-                endpoint=endpoint
+                from_time=from_time, to_time=now, endpoint=endpoint
             )
-            
+
             # Sort by last_seen descending and limit
             errors.sort(key=lambda x: x.get("last_seen", ""), reverse=True)
-            
-            return {
-                "timestamp": now.isoformat(),
-                "count": len(errors),
-                "errors": errors[:limit]
-            }
+
+            return {"timestamp": now.isoformat(), "count": len(errors), "errors": errors[:limit]}
 
     async def _store_http_metric(
         self,

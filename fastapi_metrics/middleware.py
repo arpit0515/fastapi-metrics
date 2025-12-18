@@ -1,4 +1,5 @@
 """Middleware for tracking HTTP request metrics."""
+
 import os
 import time
 import datetime
@@ -11,9 +12,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 class MetricsMiddleware(BaseHTTPMiddleware):
     """Middleware to track HTTP request metrics."""
 
-    def __init__(
-        self, app: Any, metrics_instance: Any, track_errors: bool = False
-    ) -> None:
+    def __init__(self, app: Any, metrics_instance: Any, track_errors: bool = False) -> None:
         super().__init__(app)
         self.metrics = metrics_instance
         # If you want to track errors separately
@@ -79,6 +78,7 @@ class MetricsMiddleware(BaseHTTPMiddleware):
             # Preventing the application to crash, returning the error as API response
             # use environment variable in STG => DEBUG=true to activate
             from fastapi.responses import JSONResponse
+
             is_debug = os.getenv("DEBUG", "false").lower() == "true"
             return JSONResponse(
                 status_code=500,
