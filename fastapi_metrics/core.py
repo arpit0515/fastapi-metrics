@@ -159,10 +159,11 @@ class Metrics:
             to_time = datetime.datetime.now(datetime.timezone.utc)
             from_time = to_time - datetime.timedelta(hours=from_hours)
 
-            # Use the correct storage method names
+            # Use the correct storage method names — fetch all data for aggregation
             http_data = await self.storage.query_http_metrics(
                 from_time=from_time,
                 to_time=to_time,
+                limit=100_000,
             )
 
             # Aggregate HTTP metrics
@@ -230,10 +231,11 @@ class Metrics:
                 system_data = await self.system_metrics.collect()
                 metrics["system"] = system_data
 
-            # Add custom metrics summary
+            # Add custom metrics summary — fetch all data for aggregation
             custom_data = await self.storage.query_custom_metrics(
                 from_time=from_time,
                 to_time=to_time,
+                limit=100_000,
             )
 
             if custom_data:
@@ -273,9 +275,11 @@ class Metrics:
             method: Optional[str] = None,
             name: Optional[str] = None,
             group_by: Optional[str] = None,
+            page: int = 1,
+            limit: int = 100,
         ):
             """
-            Query metrics with time range and filters.
+            Query metrics with time range, filters, and pagination.
 
             Args:
                 metric_type: "http" or "custom"
@@ -285,7 +289,13 @@ class Metrics:
                 method: Filter by method (HTTP only)
                 name: Filter by metric name (custom only)
                 group_by: Group results by "hour" or None
+                page: Page number, 1-based (default: 1)
+                limit: Results per page, max 1000 (default: 100)
             """
+            limit = min(max(1, limit), 1000)
+            page = max(1, page)
+            offset = (page - 1) * limit
+
             now = datetime.datetime.now(datetime.timezone.utc)
             from_time = now - datetime.timedelta(hours=from_hours)
             to_time = now - datetime.timedelta(hours=to_hours)
@@ -297,6 +307,8 @@ class Metrics:
                     endpoint=endpoint,
                     method=method,
                     group_by=group_by,
+                    limit=limit,
+                    offset=offset,
                 )
             elif metric_type == "custom":
                 results = await self.storage.query_custom_metrics(
@@ -304,6 +316,8 @@ class Metrics:
                     to_time=to_time,
                     name=name,
                     group_by=group_by,
+                    limit=limit,
+                    offset=offset,
                 )
             else:
                 return {"error": "Invalid metric_type. Use 'http' or 'custom'"}
@@ -312,6 +326,8 @@ class Metrics:
                 "metric_type": metric_type,
                 "from": from_time.isoformat(),
                 "to": to_time.isoformat(),
+                "page": page,
+                "limit": limit,
                 "count": len(results),
                 "results": results,
             }
@@ -388,19 +404,25 @@ class Metrics:
                 from_time=from_time,
                 to_time=now,
                 name="llm_cost",
+                limit=100_000,
             )
 
             total_cost = sum(c.get("value", 0) for c in costs)
             by_provider = {}
+            by_model = {}
             for cost in costs:
-                provider = cost.get("labels", {}).get("provider", "unknown")
-                if provider not in by_provider:
-                    by_provider[provider] = 0
-                by_provider[provider] += cost.get("value", 0)
+                labels = cost.get("labels", {})
+                provider = labels.get("provider", "unknown")
+                model = labels.get("model", "unknown")
+                value = cost.get("value", 0)
+
+                by_provider[provider] = by_provider.get(provider, 0) + value
+                by_model[model] = by_model.get(model, 0) + value
 
             return {
-                "total_cost": total_cost,
-                "by_provider": by_provider,
+                "total_cost": round(total_cost, 6),
+                "by_provider": {k: round(v, 6) for k, v in by_provider.items()},
+                "by_model": {k: round(v, 6) for k, v in by_model.items()},
                 "count": len(costs),
                 "period_hours": hours,
             }
@@ -440,6 +462,7 @@ class Metrics:
         method: str,
         status_code: int,
         latency_ms: float,
+        labels: Optional[Dict[str, Any]] = None,
     ):
         """Internal method to store HTTP metrics."""
         await self.storage.store_http_metric(
@@ -448,6 +471,7 @@ class Metrics:
             method=method,
             status_code=status_code,
             latency_ms=latency_ms,
+            labels=labels,
         )
 
     async def track(

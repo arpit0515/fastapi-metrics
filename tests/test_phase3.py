@@ -437,3 +437,92 @@ async def test_http_alert_no_trigger_below_threshold():
 
     await manager.check_alerts()
     assert alert.last_triggered is None
+
+
+# Updated LLM Pricing Tests
+def test_gemini_cost_calculation():
+    """Test Gemini cost calculation."""
+    metrics = Metrics(FastAPI(), storage="memory://")
+    tracker = metrics.llm_costs
+
+    # gemini-1.5-pro: $1.25/1M input, $5/1M output
+    cost = tracker.calculate_gemini_cost("gemini-1.5-pro", 1000, 2000)
+    expected = (1000 / 1_000_000 * 1.25) + (2000 / 1_000_000 * 5.0)
+    assert abs(cost - expected) < 0.0001
+
+
+def test_openai_o3_cost_calculation():
+    """Test OpenAI o3 cost calculation."""
+    metrics = Metrics(FastAPI(), storage="memory://")
+    tracker = metrics.llm_costs
+
+    # o3: $10/1M input, $40/1M output
+    cost = tracker.calculate_openai_cost("o3", 1000, 2000)
+    expected = (1000 / 1_000_000 * 10.0) + (2000 / 1_000_000 * 40.0)
+    assert abs(cost - expected) < 0.0001
+
+
+def test_anthropic_claude4_cost_calculation():
+    """Test Anthropic Claude 4 cost calculation."""
+    metrics = Metrics(FastAPI(), storage="memory://")
+    tracker = metrics.llm_costs
+
+    # claude-sonnet-4: $3/1M input, $15/1M output
+    cost = tracker.calculate_anthropic_cost("claude-sonnet-4-20250514", 1000, 2000)
+    expected = (1000 / 1_000_000 * 3.0) + (2000 / 1_000_000 * 15.0)
+    assert abs(cost - expected) < 0.0001
+
+
+@pytest.mark.asyncio
+async def test_track_gemini_call():
+    """Test tracking Gemini API call."""
+    storage = MemoryStorage()
+    await storage.initialize()
+
+    app = FastAPI()
+    metrics = Metrics(app, storage=storage)
+
+    await metrics.llm_costs.track_gemini_call(
+        model="gemini-2.0-flash",
+        input_tokens=500,
+        output_tokens=1000,
+    )
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    costs = await storage.query_custom_metrics(
+        from_time=now - datetime.timedelta(minutes=1),
+        to_time=now + datetime.timedelta(minutes=1),
+        name="llm_cost",
+        limit=10,
+    )
+    assert len(costs) == 1
+    assert costs[0]["labels"]["provider"] == "gemini"
+    assert costs[0]["labels"]["model"] == "gemini-2.0-flash"
+
+
+# Model breakdown in /metrics/costs
+@pytest.mark.asyncio
+async def test_costs_model_breakdown():
+    """Test /metrics/costs returns by_model breakdown."""
+    storage = MemoryStorage()
+    await storage.initialize()
+
+    app = FastAPI()
+    metrics = Metrics(app, storage=storage)
+
+    await metrics.llm_costs.track_openai_call(model="gpt-4o", input_tokens=1000, output_tokens=500)
+    await metrics.llm_costs.track_anthropic_call(
+        model="claude-sonnet-4", input_tokens=1000, output_tokens=500
+    )
+
+    client = TestClient(app)
+    response = client.get("/metrics/costs?hours=1")
+    assert response.status_code == 200
+
+    data = response.json()
+    assert "by_model" in data
+    assert "gpt-4o" in data["by_model"]
+    assert "claude-sonnet-4" in data["by_model"]
+    assert "by_provider" in data
+    assert "openai" in data["by_provider"]
+    assert "anthropic" in data["by_provider"]

@@ -298,5 +298,51 @@ def test_metrics_time_window(client):
     assert response.json()["http"]["total_requests"] == 0
 
 
+def test_pagination(client):
+    """GET /metrics/query supports page and limit params."""
+    # Make 5 requests
+    for _ in range(5):
+        client.get("/test")
+
+    # Page 1, limit 2 → 2 results
+    response = client.get("/metrics/query?metric_type=http&from_hours=1&limit=2&page=1")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["count"] == 2
+    assert data["page"] == 1
+    assert data["limit"] == 2
+
+    # Page 2, limit 2 → next 2 results
+    response = client.get("/metrics/query?metric_type=http&from_hours=1&limit=2&page=2")
+    assert response.status_code == 200
+    data2 = response.json()
+    assert data2["page"] == 2
+
+    # Results on page 1 and page 2 should be different
+    p1_ids = [r.get("timestamp") for r in data["results"]]
+    p2_ids = [r.get("timestamp") for r in data2["results"]]
+    assert p1_ids != p2_ids
+
+
+def test_request_id_passthrough(app):
+    """X-Request-ID header is echoed back in response."""
+    c = TestClient(app)
+    response = c.get("/test", headers={"x-request-id": "test-trace-123"})
+    assert response.status_code == 200
+    assert response.headers.get("x-request-id") == "test-trace-123"
+
+
+def test_request_id_stored_in_labels(app):
+    """X-Request-ID is stored in metric labels."""
+    c = TestClient(app)
+    c.get("/test", headers={"x-request-id": "trace-abc"})
+
+    response = c.get("/metrics/query?metric_type=http&from_hours=1&limit=10")
+    data = response.json()
+    labels_list = [r.get("labels", {}) for r in data["results"] if isinstance(r, dict)]
+    request_ids = [l.get("request_id") for l in labels_list if l.get("request_id")]
+    assert "trace-abc" in request_ids
+
+
 if __name__ == __name__ == "__main__":
     pytest.main([__file__])

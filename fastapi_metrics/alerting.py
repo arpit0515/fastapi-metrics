@@ -108,6 +108,7 @@ class AlertManager:
                     from_time=from_time,
                     to_time=now,
                     name=alert.metric_name,
+                    limit=100_000,
                 )
                 if not metrics:
                     continue
@@ -136,6 +137,7 @@ class AlertManager:
             from_time=from_time,
             to_time=to_time,
             endpoint=alert.endpoint,
+            limit=100_000,
         )
         if not http_data:
             return None
