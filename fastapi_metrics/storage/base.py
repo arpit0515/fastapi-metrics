@@ -65,6 +65,8 @@ class StorageBackend(ABC):
         endpoint: Optional[str] = None,
         method: Optional[str] = None,
         group_by: Optional[str] = None,
+        limit: int = 100,
+        offset: int = 0,
     ) -> List[Dict[str, Any]]:
         """Query HTTP metrics within time range."""
         return 1
@@ -83,13 +85,19 @@ class StorageBackend(ABC):
         to_time: datetime,
         name: Optional[str] = None,
         group_by: Optional[str] = None,
+        limit: int = 100,
+        offset: int = 0,
     ) -> List[Dict[str, Any]]:
         """Query custom metrics within time range."""
         return 1
 
     @abstractmethod
-    async def get_endpoint_stats(self) -> List[Dict[str, Any]]:
-        """Get aggregated statistics per endpoint."""
+    async def get_endpoint_stats(
+        self,
+        from_time: Optional[datetime] = None,
+        to_time: Optional[datetime] = None,
+    ) -> List[Dict[str, Any]]:
+        """Get aggregated statistics per endpoint within an optional time range."""
         return 1
 
     @abstractmethod

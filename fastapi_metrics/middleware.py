@@ -12,16 +12,31 @@ from starlette.middleware.base import BaseHTTPMiddleware
 class MetricsMiddleware(BaseHTTPMiddleware):
     """Middleware to track HTTP request metrics."""
 
-    def __init__(self, app: Any, metrics_instance: Any, track_errors: bool = False) -> None:
+    def __init__(
+        self,
+        app: Any,
+        metrics_instance: Any,
+        track_errors: bool = False,
+        exclude_paths: list = None,
+    ) -> None:
         super().__init__(app)
         self.metrics = metrics_instance
         # If you want to track errors separately
         # Setting this to true will actually `raise` exceptions after logging them
         self.error_reporting = track_errors
+        self.exclude_paths = set(exclude_paths or [])
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """Track request metrics."""
+        # Skip tracking for excluded paths
+        if request.url.path in self.exclude_paths:
+            return await call_next(request)
+
         start_time = time.perf_counter()
+
+        # Extract or generate a request ID for trace correlation
+        request_id = request.headers.get("x-request-id") or request.headers.get("x-trace-id")
+        labels = {"request_id": request_id} if request_id else None
 
         # Track active requests
         self.metrics._active_requests += 1
@@ -41,8 +56,13 @@ class MetricsMiddleware(BaseHTTPMiddleware):
                 method=request.method,
                 status_code=status_code,
                 latency_ms=latency_ms,
+                labels=labels,
             )
             # pylint: disable=protected-access
+
+            # Echo request ID back in response headers for caller correlation
+            if request_id:
+                response.headers["x-request-id"] = request_id
 
             self.metrics._active_requests -= 1
             return response
@@ -51,16 +71,17 @@ class MetricsMiddleware(BaseHTTPMiddleware):
             latency_ms = (time.perf_counter() - start_time) * 1000
             # Ensure we have a status_code for final metric storage
             status_code = 500
-            # pylint: disable=protected-access
-            await self.metrics._store_error(
-                timestamp=datetime.datetime.now(datetime.timezone.utc),
-                endpoint=request.url.path,
-                method=request.method,
-                error_type=type(e).__name__,
-                error_message=str(e),
-                stack_trace=traceback.format_exc(),
-                user_agent=request.headers.get("user-agent"),
-            )
+            if self.error_reporting:
+                # pylint: disable=protected-access
+                await self.metrics._store_error(
+                    timestamp=datetime.datetime.now(datetime.timezone.utc),
+                    endpoint=request.url.path,
+                    method=request.method,
+                    error_type=type(e).__name__,
+                    error_message=str(e),
+                    stack_trace=traceback.format_exc(),
+                    user_agent=request.headers.get("user-agent"),
+                )
             # pylint: disable=protected-access
             await self.metrics._store_http_metric(
                 timestamp=datetime.datetime.now(datetime.timezone.utc),
@@ -68,6 +89,7 @@ class MetricsMiddleware(BaseHTTPMiddleware):
                 method=request.method,
                 status_code=500,
                 latency_ms=latency_ms,
+                labels=labels,
             )
             # pylint: disable=protected-access
             self.metrics._active_requests -= 1
@@ -80,7 +102,7 @@ class MetricsMiddleware(BaseHTTPMiddleware):
             from fastapi.responses import JSONResponse
 
             is_debug = os.getenv("DEBUG", "false").lower() == "true"
-            return JSONResponse(
+            resp = JSONResponse(
                 status_code=500,
                 content={
                     "detail": "Internal Server Error",
@@ -89,3 +111,6 @@ class MetricsMiddleware(BaseHTTPMiddleware):
                     "traceback": traceback.format_exc() if is_debug else None,
                 },
             )
+            if request_id:
+                resp.headers["x-request-id"] = request_id
+            return resp

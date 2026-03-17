@@ -1,7 +1,7 @@
 """Core metrics functionality for FastAPI applications."""
 
 import datetime
-from typing import Any, Optional, Union, Dict
+from typing import Any, List, Optional, Union, Dict
 import asyncio
 import json
 import statistics
@@ -34,6 +34,7 @@ class Metrics:
         enable_system_metrics: bool = False,
         enable_error_tracking: bool = True,
         alert_webhook_url: Optional[str] = None,
+        exclude_paths: Optional[List[str]] = None,
     ):
         """
         Initialize metrics for a FastAPI application.
@@ -48,11 +49,15 @@ class Metrics:
             enable_system_metrics: Enable system metrics collection
                 (CPU, memory, disk)
             alert_webhook_url: Optional webhook URL for alert notifications
+            exclude_paths: List of URL paths to skip tracking entirely
+                (e.g. ["/docs", "/health"]). Defaults to ["/docs",
+                "/openapi.json", "/redoc"].
         """
         self.app = app
         self.retention_hours = retention_hours
         self.enable_cleanup = enable_cleanup
         self._active_requests = 0
+        self._cleanup_task = None
         self.health_manager = HealthManager() if enable_health_checks else None
 
         # Initialize Phase 3 components
@@ -79,15 +84,23 @@ class Metrics:
                 region = parse_qs(parsed.query).get("region", ["us-east-1"])[0]
                 self.storage = DynamoDBStorage(table, region)
             else:
-                raise ValueError(f"Unknown storage: {storage}")
+                raise ValueError(f"Unknown storage backend: {storage}")
         else:
             # Custom storage instance
             self.storage = storage
 
         self.enable_error_tracking = enable_error_tracking
 
+        _default_excludes = ["/docs", "/openapi.json", "/redoc"]
+        self.exclude_paths: List[str] = (
+            exclude_paths if exclude_paths is not None else _default_excludes
+        )
+
         app.add_middleware(
-            MetricsMiddleware, metrics_instance=self, track_errors=enable_error_tracking
+            MetricsMiddleware,
+            metrics_instance=self,
+            track_errors=enable_error_tracking,
+            exclude_paths=self.exclude_paths,
         )
 
         # Register startup/shutdown handlers using explicit event registration
@@ -110,14 +123,25 @@ class Metrics:
                 ):
                     self.health_manager.add_check("redis", RedisCheck(self.storage.client))
 
+            # Start alert background checker
+            self.alert_manager.start()
+
+            # Start periodic cleanup task if enabled
+            if self.enable_cleanup:
+                self._cleanup_task = asyncio.create_task(self._cleanup_loop())
+
         async def shutdown():
             await self.storage.close()
+            await self.alert_manager.stop()
+            if self.enable_cleanup and self._cleanup_task:
+                self._cleanup_task.cancel()
+                try:
+                    await self._cleanup_task
+                except asyncio.CancelledError:
+                    pass
 
         app.add_event_handler("startup", startup)
         app.add_event_handler("shutdown", shutdown)
-
-        # Add middleware
-        app.add_middleware(MetricsMiddleware, metrics_instance=self)
 
         # Register metrics endpoints
         self._register_endpoints()
@@ -126,16 +150,20 @@ class Metrics:
         """Register metrics API endpoints."""
 
         @self.app.get("/metrics")
-        async def get_metrics() -> Dict[str, Any]:
-            """Get current metrics snapshot with aggregations"""
+        async def get_metrics(from_hours: int = 24) -> Dict[str, Any]:
+            """Get current metrics snapshot with aggregations.
 
+            Args:
+                from_hours: How many hours back to include (default: 24)
+            """
             to_time = datetime.datetime.now(datetime.timezone.utc)
-            from_time = to_time - datetime.timedelta(hours=24)
+            from_time = to_time - datetime.timedelta(hours=from_hours)
 
-            # Use the correct storage method names
+            # Use the correct storage method names — fetch all data for aggregation
             http_data = await self.storage.query_http_metrics(
                 from_time=from_time,
                 to_time=to_time,
+                limit=100_000,
             )
 
             # Aggregate HTTP metrics
@@ -203,10 +231,11 @@ class Metrics:
                 system_data = await self.system_metrics.collect()
                 metrics["system"] = system_data
 
-            # Add custom metrics summary
+            # Add custom metrics summary — fetch all data for aggregation
             custom_data = await self.storage.query_custom_metrics(
                 from_time=from_time,
                 to_time=to_time,
+                limit=100_000,
             )
 
             if custom_data:
@@ -246,9 +275,11 @@ class Metrics:
             method: Optional[str] = None,
             name: Optional[str] = None,
             group_by: Optional[str] = None,
+            page: int = 1,
+            limit: int = 100,
         ):
             """
-            Query metrics with time range and filters.
+            Query metrics with time range, filters, and pagination.
 
             Args:
                 metric_type: "http" or "custom"
@@ -258,7 +289,13 @@ class Metrics:
                 method: Filter by method (HTTP only)
                 name: Filter by metric name (custom only)
                 group_by: Group results by "hour" or None
+                page: Page number, 1-based (default: 1)
+                limit: Results per page, max 1000 (default: 100)
             """
+            limit = min(max(1, limit), 1000)
+            page = max(1, page)
+            offset = (page - 1) * limit
+
             now = datetime.datetime.now(datetime.timezone.utc)
             from_time = now - datetime.timedelta(hours=from_hours)
             to_time = now - datetime.timedelta(hours=to_hours)
@@ -270,6 +307,8 @@ class Metrics:
                     endpoint=endpoint,
                     method=method,
                     group_by=group_by,
+                    limit=limit,
+                    offset=offset,
                 )
             elif metric_type == "custom":
                 results = await self.storage.query_custom_metrics(
@@ -277,6 +316,8 @@ class Metrics:
                     to_time=to_time,
                     name=name,
                     group_by=group_by,
+                    limit=limit,
+                    offset=offset,
                 )
             else:
                 return {"error": "Invalid metric_type. Use 'http' or 'custom'"}
@@ -285,16 +326,21 @@ class Metrics:
                 "metric_type": metric_type,
                 "from": from_time.isoformat(),
                 "to": to_time.isoformat(),
+                "page": page,
+                "limit": limit,
                 "count": len(results),
                 "results": results,
             }
 
         @self.app.get("/metrics/endpoints")
-        async def get_endpoint_stats():
-            """Get aggregated statistics per endpoint."""
-            stats = await self.storage.get_endpoint_stats()
+        async def get_endpoint_stats(hours: int = 24):
+            """Get aggregated statistics per endpoint within a time window."""
+            now = datetime.datetime.now(datetime.timezone.utc)
+            from_time = now - datetime.timedelta(hours=hours)
+            stats = await self.storage.get_endpoint_stats(from_time=from_time, to_time=now)
             return {
-                "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                "timestamp": now.isoformat(),
+                "period_hours": hours,
                 "endpoints": stats,
             }
 
@@ -358,19 +404,25 @@ class Metrics:
                 from_time=from_time,
                 to_time=now,
                 name="llm_cost",
+                limit=100_000,
             )
 
             total_cost = sum(c.get("value", 0) for c in costs)
             by_provider = {}
+            by_model = {}
             for cost in costs:
-                provider = cost.get("labels", {}).get("provider", "unknown")
-                if provider not in by_provider:
-                    by_provider[provider] = 0
-                by_provider[provider] += cost.get("value", 0)
+                labels = cost.get("labels", {})
+                provider = labels.get("provider", "unknown")
+                model = labels.get("model", "unknown")
+                value = cost.get("value", 0)
+
+                by_provider[provider] = by_provider.get(provider, 0) + value
+                by_model[model] = by_model.get(model, 0) + value
 
             return {
-                "total_cost": total_cost,
-                "by_provider": by_provider,
+                "total_cost": round(total_cost, 6),
+                "by_provider": {k: round(v, 6) for k, v in by_provider.items()},
+                "by_model": {k: round(v, 6) for k, v in by_model.items()},
                 "count": len(costs),
                 "period_hours": hours,
             }
@@ -410,6 +462,7 @@ class Metrics:
         method: str,
         status_code: int,
         latency_ms: float,
+        labels: Optional[Dict[str, Any]] = None,
     ):
         """Internal method to store HTTP metrics."""
         await self.storage.store_http_metric(
@@ -418,6 +471,7 @@ class Metrics:
             method=method,
             status_code=status_code,
             latency_ms=latency_ms,
+            labels=labels,
         )
 
     async def track(
@@ -513,3 +567,17 @@ class Metrics:
             stack_trace=stack_trace,
             user_agent=user_agent,
         )
+
+    async def _cleanup_loop(self):
+        """Background task that periodically removes old metrics data."""
+        while True:
+            try:
+                await asyncio.sleep(3600)  # run every hour
+                before = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(
+                    hours=self.retention_hours
+                )
+                await self.storage.cleanup_old_data(before)
+            except asyncio.CancelledError:
+                break
+            except Exception:  # pylint: disable=broad-except
+                pass
