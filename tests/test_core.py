@@ -2,6 +2,7 @@
 Docstring for tests.test_core
 """
 
+import importlib.util
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -58,7 +59,8 @@ def test_metrics_endpoint(client):
     response = client.get("/metrics")
     assert response.status_code == 200
     data = response.json()
-    assert "active_requests" in data
+    assert "http" in data
+    assert "active_requests" in data["http"]
     assert "timestamp" in data
 
 
@@ -214,7 +216,7 @@ def test_health_not_enabled(client):
 
 
 @pytest.mark.skipif(
-    not pytest.importorskip("redis", reason="Redis not installed"),
+    importlib.util.find_spec("redis") is None,
     reason="Redis package not available",
 )
 def test_redis_storage_initialization():

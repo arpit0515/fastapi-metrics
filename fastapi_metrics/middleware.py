@@ -51,16 +51,17 @@ class MetricsMiddleware(BaseHTTPMiddleware):
             latency_ms = (time.perf_counter() - start_time) * 1000
             # Ensure we have a status_code for final metric storage
             status_code = 500
-            # pylint: disable=protected-access
-            await self.metrics._store_error(
-                timestamp=datetime.datetime.now(datetime.timezone.utc),
-                endpoint=request.url.path,
-                method=request.method,
-                error_type=type(e).__name__,
-                error_message=str(e),
-                stack_trace=traceback.format_exc(),
-                user_agent=request.headers.get("user-agent"),
-            )
+            if self.error_reporting:
+                # pylint: disable=protected-access
+                await self.metrics._store_error(
+                    timestamp=datetime.datetime.now(datetime.timezone.utc),
+                    endpoint=request.url.path,
+                    method=request.method,
+                    error_type=type(e).__name__,
+                    error_message=str(e),
+                    stack_trace=traceback.format_exc(),
+                    user_agent=request.headers.get("user-agent"),
+                )
             # pylint: disable=protected-access
             await self.metrics._store_http_metric(
                 timestamp=datetime.datetime.now(datetime.timezone.utc),

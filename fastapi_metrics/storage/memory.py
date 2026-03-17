@@ -14,6 +14,7 @@ class MemoryStorage(StorageBackend):
     def __init__(self):
         self.http_metrics: List[Dict[str, Any]] = []
         self.custom_metrics: List[Dict[str, Any]] = []
+        self.errors: List[Dict[str, Any]] = []
         self._initialized = False
 
     async def initialize(self) -> None:
@@ -24,6 +25,7 @@ class MemoryStorage(StorageBackend):
         """Clear all data."""
         self.http_metrics.clear()
         self.custom_metrics.clear()
+        self.errors.clear()
         self._initialized = False
 
     async def store_http_metric(
@@ -138,10 +140,18 @@ class MemoryStorage(StorageBackend):
 
         return filtered
 
-    async def get_endpoint_stats(self) -> List[Dict[str, Any]]:
-        """Get aggregated stats per endpoint."""
+    async def get_endpoint_stats(
+        self,
+        from_time: Optional[datetime] = None,
+        to_time: Optional[datetime] = None,
+    ) -> List[Dict[str, Any]]:
+        """Get aggregated stats per endpoint within an optional time range."""
         by_endpoint = defaultdict(list)
         for m in self.http_metrics:
+            if from_time and m["timestamp"] < from_time:
+                continue
+            if to_time and m["timestamp"] > to_time:
+                continue
             key = (m["endpoint"], m["method"])
             by_endpoint[key].append(m)
 
@@ -173,12 +183,65 @@ class MemoryStorage(StorageBackend):
 
         return stats
 
+    async def store_error(
+        self,
+        timestamp: datetime,
+        endpoint: str,
+        method: str,
+        error_type: str,
+        error_message: str,
+        error_hash: str,
+        stack_trace: str,
+        user_agent: Optional[str] = None,
+    ) -> None:
+        """Store error details in memory, deduplicating by hash."""
+        for error in self.errors:
+            if error["error_hash"] == error_hash:
+                error["count"] += 1
+                error["last_seen"] = timestamp
+                return
+        self.errors.append(
+            {
+                "timestamp": timestamp,
+                "endpoint": endpoint,
+                "method": method,
+                "error_type": error_type,
+                "error_message": error_message,
+                "error_hash": error_hash,
+                "stack_trace": stack_trace,
+                "user_agent": user_agent,
+                "count": 1,
+                "first_seen": timestamp,
+                "last_seen": timestamp,
+            }
+        )
+
+    async def query_errors(
+        self,
+        from_time: datetime,
+        to_time: datetime,
+        endpoint: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Query errors from memory."""
+        return [
+            e
+            for e in self.errors
+            if from_time <= e["timestamp"] <= to_time
+            and (endpoint is None or e["endpoint"] == endpoint)
+        ]
+
     async def cleanup_old_data(self, before: datetime) -> int:
         """Remove data older than specified datetime."""
         http_before = len(self.http_metrics)
         custom_before = len(self.custom_metrics)
+        errors_before = len(self.errors)
 
         self.http_metrics = [m for m in self.http_metrics if m["timestamp"] >= before]
         self.custom_metrics = [m for m in self.custom_metrics if m["timestamp"] >= before]
+        self.errors = [e for e in self.errors if e["timestamp"] >= before]
 
-        return (http_before - len(self.http_metrics)) + (custom_before - len(self.custom_metrics))
+        return (
+            (http_before - len(self.http_metrics))
+            + (custom_before - len(self.custom_metrics))
+            + (errors_before - len(self.errors))
+        )

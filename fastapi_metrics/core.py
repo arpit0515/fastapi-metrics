@@ -53,6 +53,7 @@ class Metrics:
         self.retention_hours = retention_hours
         self.enable_cleanup = enable_cleanup
         self._active_requests = 0
+        self._cleanup_task = None
         self.health_manager = HealthManager() if enable_health_checks else None
 
         # Initialize Phase 3 components
@@ -79,7 +80,7 @@ class Metrics:
                 region = parse_qs(parsed.query).get("region", ["us-east-1"])[0]
                 self.storage = DynamoDBStorage(table, region)
             else:
-                raise ValueError(f"Unknown storage: {storage}")
+                raise ValueError(f"Unknown storage backend: {storage}")
         else:
             # Custom storage instance
             self.storage = storage
@@ -110,14 +111,25 @@ class Metrics:
                 ):
                     self.health_manager.add_check("redis", RedisCheck(self.storage.client))
 
+            # Start alert background checker
+            self.alert_manager.start()
+
+            # Start periodic cleanup task if enabled
+            if self.enable_cleanup:
+                self._cleanup_task = asyncio.create_task(self._cleanup_loop())
+
         async def shutdown():
             await self.storage.close()
+            await self.alert_manager.stop()
+            if self.enable_cleanup and self._cleanup_task:
+                self._cleanup_task.cancel()
+                try:
+                    await self._cleanup_task
+                except asyncio.CancelledError:
+                    pass
 
         app.add_event_handler("startup", startup)
         app.add_event_handler("shutdown", shutdown)
-
-        # Add middleware
-        app.add_middleware(MetricsMiddleware, metrics_instance=self)
 
         # Register metrics endpoints
         self._register_endpoints()
@@ -290,11 +302,14 @@ class Metrics:
             }
 
         @self.app.get("/metrics/endpoints")
-        async def get_endpoint_stats():
-            """Get aggregated statistics per endpoint."""
-            stats = await self.storage.get_endpoint_stats()
+        async def get_endpoint_stats(hours: int = 24):
+            """Get aggregated statistics per endpoint within a time window."""
+            now = datetime.datetime.now(datetime.timezone.utc)
+            from_time = now - datetime.timedelta(hours=hours)
+            stats = await self.storage.get_endpoint_stats(from_time=from_time, to_time=now)
             return {
-                "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                "timestamp": now.isoformat(),
+                "period_hours": hours,
                 "endpoints": stats,
             }
 
@@ -513,3 +528,17 @@ class Metrics:
             stack_trace=stack_trace,
             user_agent=user_agent,
         )
+
+    async def _cleanup_loop(self):
+        """Background task that periodically removes old metrics data."""
+        while True:
+            try:
+                await asyncio.sleep(3600)  # run every hour
+                before = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(
+                    hours=self.retention_hours
+                )
+                await self.storage.cleanup_old_data(before)
+            except asyncio.CancelledError:
+                break
+            except Exception:  # pylint: disable=broad-except
+                pass

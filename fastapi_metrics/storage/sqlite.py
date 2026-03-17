@@ -65,7 +65,7 @@ class SQLiteStorage(StorageBackend):
             """
             CREATE TABLE IF NOT EXISTS errors (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp TEXT NOT NULL,
+                timestamp REAL NOT NULL,
                 endpoint TEXT NOT NULL,
                 method TEXT NOT NULL,
                 error_type TEXT NOT NULL,
@@ -74,8 +74,8 @@ class SQLiteStorage(StorageBackend):
                 stack_trace TEXT,
                 user_agent TEXT,
                 count INTEGER DEFAULT 1,
-                first_seen TEXT NOT NULL,
-                last_seen TEXT NOT NULL
+                first_seen REAL NOT NULL,
+                last_seen REAL NOT NULL
             )
         """
         )
@@ -285,13 +285,27 @@ class SQLiteStorage(StorageBackend):
             for row in rows
         ]
 
-    async def get_endpoint_stats(self) -> List[Dict[str, Any]]:
-        """Get aggregated statistics per endpoint."""
+    async def get_endpoint_stats(
+        self,
+        from_time: Optional[datetime] = None,
+        to_time: Optional[datetime] = None,
+    ) -> List[Dict[str, Any]]:
+        """Get aggregated statistics per endpoint within an optional time range."""
         if self.conn is None:
             await self.initialize()
 
-        query = """
-            SELECT 
+        conditions = []
+        params = []
+        if from_time:
+            conditions.append("timestamp >= ?")
+            params.append(from_time.timestamp())
+        if to_time:
+            conditions.append("timestamp <= ?")
+            params.append(to_time.timestamp())
+
+        where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+        query = f"""
+            SELECT
                 endpoint,
                 method,
                 COUNT(*) as count,
@@ -300,11 +314,12 @@ class SQLiteStorage(StorageBackend):
                 MAX(latency_ms) as max_latency_ms,
                 SUM(CASE WHEN status_code >= 400 THEN 1 ELSE 0 END) * 1.0 / COUNT(*) as error_rate
             FROM http_requests
+            {where_clause}
             GROUP BY endpoint, method
             ORDER BY count DESC
         """
 
-        cursor = await self.conn.execute(query)
+        cursor = await self.conn.execute(query, params)
         rows = await cursor.fetchall()
 
         return [
@@ -338,7 +353,7 @@ class SQLiteStorage(StorageBackend):
         custom_deleted = cursor.rowcount
 
         cursor = await self.conn.execute(
-            "DELETE FROM errors WHERE timestamp < ?", (before.isoformat(),)
+            "DELETE FROM errors WHERE timestamp < ?", (before.timestamp(),)
         )
         errors_deleted = cursor.rowcount
 
@@ -367,27 +382,28 @@ class SQLiteStorage(StorageBackend):
         )
         existing = await cursor.fetchone()
 
+        ts = timestamp.timestamp()
         if existing:
             # Update existing error
             await self.conn.execute(
                 """
-                UPDATE errors 
+                UPDATE errors
                 SET count = count + 1, last_seen = ?
                 WHERE error_hash = ?
                 """,
-                (timestamp.isoformat(), error_hash),
+                (ts, error_hash),
             )
         else:
             # Insert new error
             await self.conn.execute(
                 """
-                INSERT INTO errors 
-                (timestamp, endpoint, method, error_type, error_message, 
+                INSERT INTO errors
+                (timestamp, endpoint, method, error_type, error_message,
                 error_hash, stack_trace, user_agent, first_seen, last_seen)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    timestamp.isoformat(),
+                    ts,
                     endpoint,
                     method,
                     error_type,
@@ -395,8 +411,8 @@ class SQLiteStorage(StorageBackend):
                     error_hash,
                     stack_trace,
                     user_agent,
-                    timestamp.isoformat(),
-                    timestamp.isoformat(),
+                    ts,
+                    ts,
                 ),
             )
 
@@ -410,7 +426,7 @@ class SQLiteStorage(StorageBackend):
             await self.initialize()
 
         conditions = ["timestamp BETWEEN ? AND ?"]
-        params = [from_time.isoformat(), to_time.isoformat()]
+        params = [from_time.timestamp(), to_time.timestamp()]
 
         if endpoint:
             conditions.append("endpoint = ?")
@@ -430,7 +446,9 @@ class SQLiteStorage(StorageBackend):
 
         return [
             {
-                "timestamp": row[0],
+                "timestamp": datetime.datetime.fromtimestamp(
+                    row[0], tz=datetime.timezone.utc
+                ).isoformat(),
                 "endpoint": row[1],
                 "method": row[2],
                 "error_type": row[3],
@@ -439,8 +457,12 @@ class SQLiteStorage(StorageBackend):
                 "stack_trace": row[6],
                 "user_agent": row[7],
                 "count": row[8],
-                "first_seen": row[9],
-                "last_seen": row[10],
+                "first_seen": datetime.datetime.fromtimestamp(
+                    row[9], tz=datetime.timezone.utc
+                ).isoformat(),
+                "last_seen": datetime.datetime.fromtimestamp(
+                    row[10], tz=datetime.timezone.utc
+                ).isoformat(),
             }
             for row in rows
         ]
