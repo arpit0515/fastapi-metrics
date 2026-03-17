@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo "======================================"
-echo "FastAPI Metrics - Test Suite v0.3.12"
+echo "FastAPI Metrics - Test Suite v0.3.13"
 echo "======================================"
 echo ""
 
