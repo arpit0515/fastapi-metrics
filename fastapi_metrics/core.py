@@ -1,7 +1,7 @@
 """Core metrics functionality for FastAPI applications."""
 
 import datetime
-from typing import Any, Optional, Union, Dict
+from typing import Any, List, Optional, Union, Dict
 import asyncio
 import json
 import statistics
@@ -34,6 +34,7 @@ class Metrics:
         enable_system_metrics: bool = False,
         enable_error_tracking: bool = True,
         alert_webhook_url: Optional[str] = None,
+        exclude_paths: Optional[List[str]] = None,
     ):
         """
         Initialize metrics for a FastAPI application.
@@ -48,6 +49,9 @@ class Metrics:
             enable_system_metrics: Enable system metrics collection
                 (CPU, memory, disk)
             alert_webhook_url: Optional webhook URL for alert notifications
+            exclude_paths: List of URL paths to skip tracking entirely
+                (e.g. ["/docs", "/health"]). Defaults to ["/docs",
+                "/openapi.json", "/redoc"].
         """
         self.app = app
         self.retention_hours = retention_hours
@@ -87,8 +91,16 @@ class Metrics:
 
         self.enable_error_tracking = enable_error_tracking
 
+        _default_excludes = ["/docs", "/openapi.json", "/redoc"]
+        self.exclude_paths: List[str] = (
+            exclude_paths if exclude_paths is not None else _default_excludes
+        )
+
         app.add_middleware(
-            MetricsMiddleware, metrics_instance=self, track_errors=enable_error_tracking
+            MetricsMiddleware,
+            metrics_instance=self,
+            track_errors=enable_error_tracking,
+            exclude_paths=self.exclude_paths,
         )
 
         # Register startup/shutdown handlers using explicit event registration
@@ -138,11 +150,14 @@ class Metrics:
         """Register metrics API endpoints."""
 
         @self.app.get("/metrics")
-        async def get_metrics() -> Dict[str, Any]:
-            """Get current metrics snapshot with aggregations"""
+        async def get_metrics(from_hours: int = 24) -> Dict[str, Any]:
+            """Get current metrics snapshot with aggregations.
 
+            Args:
+                from_hours: How many hours back to include (default: 24)
+            """
             to_time = datetime.datetime.now(datetime.timezone.utc)
-            from_time = to_time - datetime.timedelta(hours=24)
+            from_time = to_time - datetime.timedelta(hours=from_hours)
 
             # Use the correct storage method names
             http_data = await self.storage.query_http_metrics(

@@ -12,15 +12,26 @@ from starlette.middleware.base import BaseHTTPMiddleware
 class MetricsMiddleware(BaseHTTPMiddleware):
     """Middleware to track HTTP request metrics."""
 
-    def __init__(self, app: Any, metrics_instance: Any, track_errors: bool = False) -> None:
+    def __init__(
+        self,
+        app: Any,
+        metrics_instance: Any,
+        track_errors: bool = False,
+        exclude_paths: list = None,
+    ) -> None:
         super().__init__(app)
         self.metrics = metrics_instance
         # If you want to track errors separately
         # Setting this to true will actually `raise` exceptions after logging them
         self.error_reporting = track_errors
+        self.exclude_paths = set(exclude_paths or [])
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """Track request metrics."""
+        # Skip tracking for excluded paths
+        if request.url.path in self.exclude_paths:
+            return await call_next(request)
+
         start_time = time.perf_counter()
 
         # Track active requests

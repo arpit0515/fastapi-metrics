@@ -242,5 +242,61 @@ def test_redis_storage_initialization():
         pytest.skip(f"Redis not available: {e}")
 
 
+def test_exclude_paths_default(app):
+    """Default exclude paths (/docs, /openapi.json, /redoc) are not tracked."""
+    client = TestClient(app)
+    client.get("/docs")
+    client.get("/openapi.json")
+
+    response = client.get("/metrics/query?metric_type=http&from_hours=1")
+    data = response.json()
+    tracked_paths = [r.get("endpoint") for r in data["results"] if isinstance(r, dict)]
+    assert "/docs" not in tracked_paths
+    assert "/openapi.json" not in tracked_paths
+
+
+def test_exclude_paths_custom():
+    """Custom exclude_paths list skips specified endpoints."""
+    in_app = FastAPI()
+    Metrics(in_app, storage="memory://", exclude_paths=["/internal", "/ping"])
+
+    @in_app.get("/internal")
+    async def internal():
+        return {}
+
+    @in_app.get("/ping")
+    async def ping():
+        return {}
+
+    @in_app.get("/public")
+    async def public():
+        return {}
+
+    c = TestClient(in_app)
+    c.get("/internal")
+    c.get("/ping")
+    c.get("/public")
+
+    response = c.get("/metrics/query?metric_type=http&from_hours=1")
+    data = response.json()
+    tracked_paths = [r.get("endpoint") for r in data["results"] if isinstance(r, dict)]
+    assert "/internal" not in tracked_paths
+    assert "/ping" not in tracked_paths
+    assert "/public" in tracked_paths
+
+
+def test_metrics_time_window(client):
+    """GET /metrics respects from_hours parameter."""
+    client.get("/test")
+
+    response = client.get("/metrics?from_hours=24")
+    assert response.status_code == 200
+    assert response.json()["http"]["total_requests"] >= 1
+
+    response = client.get("/metrics?from_hours=0")
+    assert response.status_code == 200
+    assert response.json()["http"]["total_requests"] == 0
+
+
 if __name__ == __name__ == "__main__":
     pytest.main([__file__])

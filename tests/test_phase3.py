@@ -332,3 +332,108 @@ def test_phase3_endpoints_exist(client_phase3):
     # Prometheus export
     response = client_phase3.get("/metrics/export/prometheus")
     assert response.status_code == 200
+
+
+# HTTP Alert Tests
+@pytest.mark.asyncio
+async def test_http_alert_error_rate():
+    """HTTP alert triggers on high error rate."""
+    storage = MemoryStorage()
+    await storage.initialize()
+
+    app = FastAPI()
+    metrics = Metrics(app, storage=storage)
+
+    # Store 4 errors out of 5 requests → 80% error rate
+    now = datetime.datetime.now(datetime.timezone.utc)
+    for status in [500, 500, 500, 500, 200]:
+        await storage.store_http_metric(
+            timestamp=now,
+            endpoint="/api/test",
+            method="GET",
+            status_code=status,
+            latency_ms=10.0,
+        )
+
+    alert = Alert(
+        name="high_errors",
+        metric_name="error_rate",
+        threshold=0.5,
+        comparison=">",
+        window_minutes=5,
+        metric_type="http",
+    )
+    manager = AlertManager(metrics)
+    manager.add_alert(alert)
+
+    await manager.check_alerts()
+    assert alert.last_triggered is not None
+
+
+@pytest.mark.asyncio
+async def test_http_alert_latency():
+    """HTTP alert triggers on high latency."""
+    storage = MemoryStorage()
+    await storage.initialize()
+
+    app = FastAPI()
+    metrics = Metrics(app, storage=storage)
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    for latency in [800.0, 900.0, 1000.0, 1100.0]:
+        await storage.store_http_metric(
+            timestamp=now,
+            endpoint="/slow",
+            method="GET",
+            status_code=200,
+            latency_ms=latency,
+        )
+
+    alert = Alert(
+        name="slow_endpoint",
+        metric_name="avg_latency",
+        threshold=500.0,
+        comparison=">",
+        window_minutes=5,
+        metric_type="http",
+        endpoint="/slow",
+    )
+    manager = AlertManager(metrics)
+    manager.add_alert(alert)
+
+    await manager.check_alerts()
+    assert alert.last_triggered is not None
+
+
+@pytest.mark.asyncio
+async def test_http_alert_no_trigger_below_threshold():
+    """HTTP alert does not trigger when value is below threshold."""
+    storage = MemoryStorage()
+    await storage.initialize()
+
+    app = FastAPI()
+    metrics = Metrics(app, storage=storage)
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    for _ in range(5):
+        await storage.store_http_metric(
+            timestamp=now,
+            endpoint="/fast",
+            method="GET",
+            status_code=200,
+            latency_ms=10.0,
+        )
+
+    alert = Alert(
+        name="high_latency",
+        metric_name="avg_latency",
+        threshold=500.0,
+        comparison=">",
+        window_minutes=5,
+        metric_type="http",
+    )
+    manager = AlertManager(metrics)
+    manager.add_alert(alert)
+
+    await manager.check_alerts()
+    assert alert.last_triggered is None

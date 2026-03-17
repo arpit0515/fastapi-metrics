@@ -2,7 +2,7 @@
 
 import asyncio
 import logging
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, TYPE_CHECKING
 import datetime
 
 logger = logging.getLogger(__name__)
@@ -14,7 +14,16 @@ except ImportError:
 
 
 class Alert:
-    """Alert configuration."""
+    """Alert configuration.
+
+    For custom metric alerts set ``metric_type="custom"`` (default) and
+    ``metric_name`` to the name passed to ``metrics.track()``.
+
+    For HTTP metric alerts set ``metric_type="http"`` and ``metric_name``
+    to one of: ``"error_rate"``, ``"avg_latency"``, ``"p95_latency"``,
+    ``"p99_latency"``, ``"request_count"``.  Optionally filter to a
+    specific ``endpoint``.
+    """
 
     def __init__(
         self,
@@ -23,12 +32,16 @@ class Alert:
         threshold: float,
         comparison: str = ">",  # >, <, >=, <=, ==
         window_minutes: int = 5,
+        metric_type: str = "custom",  # "custom" or "http"
+        endpoint: Optional[str] = None,  # endpoint filter for http alerts
     ):
         self.name = name
         self.metric_name = metric_name
         self.threshold = threshold
         self.comparison = comparison
         self.window_minutes = window_minutes
+        self.metric_type = metric_type
+        self.endpoint = endpoint
         self.last_triggered = None
 
     def check(self, value: float) -> bool:
@@ -83,24 +96,64 @@ class AlertManager:
                 if time_since < alert.window_minutes:
                     continue
 
-            # Query metric
             from_time = now - datetime.timedelta(minutes=alert.window_minutes)
-            metrics = await self.metrics.storage.query_custom_metrics(
-                from_time=from_time,
-                to_time=now,
-                name=alert.metric_name,
-            )
 
-            if not metrics:
-                continue
-
-            # Calculate average value in window
-            avg_value = sum(m["value"] for m in metrics) / len(metrics)
+            if alert.metric_type == "http":
+                value = await self._compute_http_value(alert, from_time, now)
+                if value is None:
+                    continue
+            else:
+                # Custom metric: average value over window
+                metrics = await self.metrics.storage.query_custom_metrics(
+                    from_time=from_time,
+                    to_time=now,
+                    name=alert.metric_name,
+                )
+                if not metrics:
+                    continue
+                value = sum(m["value"] for m in metrics) / len(metrics)
 
             # Check threshold
-            if alert.check(avg_value):
-                await self._trigger_alert(alert, avg_value)
+            if alert.check(value):
+                await self._trigger_alert(alert, value)
                 alert.last_triggered = now
+
+    async def _compute_http_value(
+        self, alert: "Alert", from_time: datetime.datetime, to_time: datetime.datetime
+    ) -> Optional[float]:
+        """Compute the HTTP metric value for an alert.
+
+        Supported metric_name values:
+          - ``error_rate``    — fraction of requests with status >= 400
+          - ``avg_latency``   — mean latency in ms
+          - ``p95_latency``   — 95th-percentile latency in ms
+          - ``p99_latency``   — 99th-percentile latency in ms
+          - ``request_count`` — total number of requests in window
+
+        Returns ``None`` when there is no data to evaluate.
+        """
+        http_data = await self.metrics.storage.query_http_metrics(
+            from_time=from_time,
+            to_time=to_time,
+            endpoint=alert.endpoint,
+        )
+        if not http_data:
+            return None
+
+        metric = alert.metric_name
+        if metric == "error_rate":
+            return len([m for m in http_data if m.get("status_code", 0) >= 400]) / len(http_data)
+        if metric == "request_count":
+            return float(len(http_data))
+        if metric == "avg_latency":
+            return sum(m.get("latency_ms", 0) for m in http_data) / len(http_data)
+        if metric in ("p95_latency", "p99_latency"):
+            latencies = sorted(m.get("latency_ms", 0) for m in http_data)
+            p = 95 if metric == "p95_latency" else 99
+            idx = int(len(latencies) * p / 100)
+            return latencies[min(idx, len(latencies) - 1)]
+        # Unknown HTTP metric name — skip
+        return None
 
     async def _trigger_alert(self, alert: Alert, value: float):
         """Trigger an alert."""
