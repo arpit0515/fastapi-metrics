@@ -88,8 +88,12 @@ class StorageBackend(ABC):
         return 1
 
     @abstractmethod
-    async def get_endpoint_stats(self) -> List[Dict[str, Any]]:
-        """Get aggregated statistics per endpoint."""
+    async def get_endpoint_stats(
+        self,
+        from_time: Optional[datetime] = None,
+        to_time: Optional[datetime] = None,
+    ) -> List[Dict[str, Any]]:
+        """Get aggregated statistics per endpoint within an optional time range."""
         return 1
 
     @abstractmethod
