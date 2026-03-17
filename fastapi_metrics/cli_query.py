@@ -330,7 +330,7 @@ def main():
         description="FastAPI Metrics CLI - Query and manage metrics",
     )
 
-    parser.add_argument("-v", "--version", action="version", version="0.3.0")
+    parser.add_argument("-v", "--version", action="version", version="0.3.12")
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
