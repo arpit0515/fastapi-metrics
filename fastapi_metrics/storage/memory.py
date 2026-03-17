@@ -73,6 +73,8 @@ class MemoryStorage(StorageBackend):
         endpoint: Optional[str] = None,
         method: Optional[str] = None,
         group_by: Optional[str] = None,
+        limit: int = 100,
+        offset: int = 0,
     ) -> List[Dict[str, Any]]:
         """Query HTTP metrics from memory."""
         filtered = [
@@ -84,7 +86,7 @@ class MemoryStorage(StorageBackend):
         ]
 
         if not group_by:
-            return filtered
+            return filtered[offset : offset + limit]
 
         # Simple grouping by hour
         if group_by == "hour":
@@ -93,7 +95,7 @@ class MemoryStorage(StorageBackend):
                 key = m["timestamp"].replace(minute=0, second=0, microsecond=0)
                 grouped[key].append(m)
 
-            return [
+            results = [
                 {
                     "timestamp": k,
                     "count": len(v),
@@ -101,8 +103,9 @@ class MemoryStorage(StorageBackend):
                 }
                 for k, v in sorted(grouped.items())
             ]
+            return results[offset : offset + limit]
 
-        return filtered
+        return filtered[offset : offset + limit]
 
     async def query_custom_metrics(
         self,
@@ -110,6 +113,8 @@ class MemoryStorage(StorageBackend):
         to_time: datetime,
         name: Optional[str] = None,
         group_by: Optional[str] = None,
+        limit: int = 100,
+        offset: int = 0,
     ) -> List[Dict[str, Any]]:
         """Query custom metrics from memory."""
         filtered = [
@@ -119,7 +124,7 @@ class MemoryStorage(StorageBackend):
         ]
 
         if not group_by:
-            return filtered
+            return filtered[offset : offset + limit]
 
         # Simple grouping by hour
         if group_by == "hour":
@@ -128,7 +133,7 @@ class MemoryStorage(StorageBackend):
                 key = m["timestamp"].replace(minute=0, second=0, microsecond=0)
                 grouped[key].append(m)
 
-            return [
+            results = [
                 {
                     "timestamp": k,
                     "count": len(v),
@@ -137,8 +142,9 @@ class MemoryStorage(StorageBackend):
                 }
                 for k, v in sorted(grouped.items())
             ]
+            return results[offset : offset + limit]
 
-        return filtered
+        return filtered[offset : offset + limit]
 
     async def get_endpoint_stats(
         self,

@@ -150,6 +150,8 @@ class SQLiteStorage(StorageBackend):
         endpoint: Optional[str] = None,
         method: Optional[str] = None,
         group_by: Optional[str] = None,
+        limit: int = 100,
+        offset: int = 0,
     ) -> List[Dict[str, Any]]:
         """Query HTTP metrics from SQLite."""
         if self.conn is None:
@@ -171,7 +173,7 @@ class SQLiteStorage(StorageBackend):
         if group_by == "hour":
             # Group by hour using SQLite's datetime functions
             query = f"""
-                SELECT 
+                SELECT
                     strftime('%Y-%m-%d %H:00:00', datetime(timestamp, 'unixepoch')) as hour,
                     COUNT(*) as count,
                     AVG(latency_ms) as avg_latency_ms,
@@ -181,6 +183,7 @@ class SQLiteStorage(StorageBackend):
                 WHERE {where_clause}
                 GROUP BY hour
                 ORDER BY hour
+                LIMIT ? OFFSET ?
             """
         else:
             query = f"""
@@ -188,10 +191,10 @@ class SQLiteStorage(StorageBackend):
                 FROM http_requests
                 WHERE {where_clause}
                 ORDER BY timestamp DESC
-                LIMIT 1000
+                LIMIT ? OFFSET ?
             """
 
-        cursor = await self.conn.execute(query, params)
+        cursor = await self.conn.execute(query, params + [limit, offset])
         rows = await cursor.fetchall()
 
         if group_by == "hour":
@@ -224,6 +227,8 @@ class SQLiteStorage(StorageBackend):
         to_time: datetime,
         name: Optional[str] = None,
         group_by: Optional[str] = None,
+        limit: int = 100,
+        offset: int = 0,
     ) -> List[Dict[str, Any]]:
         """Query custom metrics from SQLite."""
         if self.conn is None:
@@ -240,7 +245,7 @@ class SQLiteStorage(StorageBackend):
 
         if group_by == "hour":
             query = f"""
-                SELECT 
+                SELECT
                     strftime('%Y-%m-%d %H:00:00', datetime(timestamp, 'unixepoch')) as hour,
                     name,
                     COUNT(*) as count,
@@ -250,6 +255,7 @@ class SQLiteStorage(StorageBackend):
                 WHERE {where_clause}
                 GROUP BY hour, name
                 ORDER BY hour
+                LIMIT ? OFFSET ?
             """
         else:
             query = f"""
@@ -257,10 +263,10 @@ class SQLiteStorage(StorageBackend):
                 FROM custom_metrics
                 WHERE {where_clause}
                 ORDER BY timestamp DESC
-                LIMIT 1000
+                LIMIT ? OFFSET ?
             """
 
-        cursor = await self.conn.execute(query, params)
+        cursor = await self.conn.execute(query, params + [limit, offset])
         rows = await cursor.fetchall()
 
         if group_by == "hour":
