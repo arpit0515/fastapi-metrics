@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fastapi-metrics"
-version = "0.3.8"
+version = "0.3.11"
 description = "Zero-config metrics for FastAPI apps - perfect for solo devs and MVPs"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -26,6 +26,8 @@ classifiers = [
 ]
 
 dependencies = [
+    "aioboto3>=11.0.0",
+    "asyncpg>=0.27.0",
     "rich>=13.0.0",
     "uvicorn>=0.22.0",
     "fastapi>=0.100.0",
@@ -36,6 +38,8 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    "aioboto3>=11.0.0",
+    "asyncpg>=0.27.0",
     "rich>=13.0.0",
     "uvicorn>=0.22.0",
     "pytest>=7.4.0",
