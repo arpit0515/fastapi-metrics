@@ -8,10 +8,11 @@ import json
 import argparse
 import asyncio
 from datetime import datetime, timedelta
-from typing import Optional
 from rich.console import Console
 from rich.table import Table
 from rich import box
+
+from fastapi_metrics import __version__
 
 console = Console()
 
@@ -330,7 +331,7 @@ def main():
         description="FastAPI Metrics CLI - Query and manage metrics",
     )
 
-    parser.add_argument("-v", "--version", action="version", version="0.3.13")
+    parser.add_argument("-v", "--version", action="version", version=__version__)
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
@@ -380,7 +381,7 @@ def main():
     errors_parser.add_argument("--json", action="store_true", help="Output as JSON")
 
     # Setup wizard (your existing code)
-    setup_parser = subparsers.add_parser("setup", help="Run interactive setup wizard")
+    subparsers.add_parser("setup", help="Run interactive setup wizard")
 
     args = parser.parse_args()
 

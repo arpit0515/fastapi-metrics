@@ -340,7 +340,7 @@ def test_request_id_stored_in_labels(app):
     response = c.get("/metrics/query?metric_type=http&from_hours=1&limit=10")
     data = response.json()
     labels_list = [r.get("labels", {}) for r in data["results"] if isinstance(r, dict)]
-    request_ids = [l.get("request_id") for l in labels_list if l.get("request_id")]
+    request_ids = [labels.get("request_id") for labels in labels_list if labels.get("request_id")]
     assert "trace-abc" in request_ids
 
 

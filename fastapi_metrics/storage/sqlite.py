@@ -21,8 +21,7 @@ class SQLiteStorage(StorageBackend):
         Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
         self.conn = await aiosqlite.connect(self.db_path)
 
-        await self.conn.execute(
-            """
+        await self.conn.execute("""
             CREATE TABLE IF NOT EXISTS http_requests (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 timestamp REAL NOT NULL,
@@ -32,11 +31,9 @@ class SQLiteStorage(StorageBackend):
                 latency_ms REAL NOT NULL,
                 labels TEXT
             )
-        """
-        )
+        """)
 
-        await self.conn.execute(
-            """
+        await self.conn.execute("""
             CREATE TABLE IF NOT EXISTS custom_metrics (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 timestamp REAL NOT NULL,
@@ -44,8 +41,7 @@ class SQLiteStorage(StorageBackend):
                 value REAL NOT NULL,
                 labels TEXT
             )
-        """
-        )
+        """)
 
         # Indexes for query performance
         await self.conn.execute(
@@ -61,8 +57,7 @@ class SQLiteStorage(StorageBackend):
             "CREATE INDEX IF NOT EXISTS idx_custom_name ON custom_metrics(name)"
         )
 
-        await self.conn.execute(
-            """
+        await self.conn.execute("""
             CREATE TABLE IF NOT EXISTS errors (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 timestamp REAL NOT NULL,
@@ -77,8 +72,7 @@ class SQLiteStorage(StorageBackend):
                 first_seen REAL NOT NULL,
                 last_seen REAL NOT NULL
             )
-        """
-        )
+        """)
 
         await self.conn.commit()
 

@@ -33,8 +33,7 @@ class PostgreSQLStorage(StorageBackend):
 
         async with self.pool.acquire() as conn:
             # HTTP metrics table
-            await conn.execute(
-                """
+            await conn.execute("""
                 CREATE TABLE IF NOT EXISTS http_metrics (
                     id SERIAL PRIMARY KEY,
                     timestamp TIMESTAMPTZ NOT NULL,
@@ -44,22 +43,16 @@ class PostgreSQLStorage(StorageBackend):
                     latency_ms REAL NOT NULL,
                     labels JSONB
                 )
-            """
-            )
-            await conn.execute(
-                """
+            """)
+            await conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_http_timestamp ON http_metrics(timestamp)
-            """
-            )
-            await conn.execute(
-                """
+            """)
+            await conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_http_endpoint ON http_metrics(endpoint, method)
-            """
-            )
+            """)
 
             # Errors table
-            await conn.execute(
-                """
+            await conn.execute("""
                 CREATE TABLE IF NOT EXISTS errors (
                     id SERIAL PRIMARY KEY,
                     timestamp TIMESTAMPTZ NOT NULL,
@@ -75,17 +68,13 @@ class PostgreSQLStorage(StorageBackend):
                     last_seen TIMESTAMPTZ NOT NULL,
                     UNIQUE(error_hash)
                 )
-            """
-            )
-            await conn.execute(
-                """
+            """)
+            await conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_errors_timestamp ON errors(timestamp)
-            """
-            )
+            """)
 
             # Custom metrics table
-            await conn.execute(
-                """
+            await conn.execute("""
                 CREATE TABLE IF NOT EXISTS custom_metrics (
                     id SERIAL PRIMARY KEY,
                     timestamp TIMESTAMPTZ NOT NULL,
@@ -93,18 +82,13 @@ class PostgreSQLStorage(StorageBackend):
                     value REAL NOT NULL,
                     labels JSONB
                 )
-            """
-            )
-            await conn.execute(
-                """
+            """)
+            await conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_custom_timestamp ON custom_metrics(timestamp)
-            """
-            )
-            await conn.execute(
-                """
+            """)
+            await conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_custom_name ON custom_metrics(name)
-            """
-            )
+            """)
 
     async def close(self):
         if self.pool:
@@ -256,8 +240,7 @@ class PostgreSQLStorage(StorageBackend):
 
     async def get_endpoint_stats(self):
         async with self.pool.acquire() as conn:
-            rows = await conn.fetch(
-                """
+            rows = await conn.fetch("""
                 SELECT 
                     endpoint,
                     method,
@@ -268,8 +251,7 @@ class PostgreSQLStorage(StorageBackend):
                     SUM(CASE WHEN status_code >= 400 THEN 1 ELSE 0 END)::FLOAT / COUNT(*) as error_rate
                 FROM http_metrics
                 GROUP BY endpoint, method
-            """
-            )
+            """)
             return [dict(row) for row in rows]
 
     async def cleanup_old_data(self, before):

@@ -1,6 +1,7 @@
 """Core metrics functionality for FastAPI applications."""
 
 import datetime
+from contextlib import asynccontextmanager
 from typing import Any, List, Optional, Union, Dict
 import asyncio
 import json
@@ -103,9 +104,11 @@ class Metrics:
             exclude_paths=self.exclude_paths,
         )
 
-        # Register startup/shutdown handlers using explicit event registration
-        # instead of the decorator `@app.on_event(...)`. This avoids relying
-        # on the decorator form which may be deprecated in some contexts.
+        # Register startup/shutdown by wrapping the app's lifespan context
+        # manager rather than `app.add_event_handler(...)` / `@app.on_event`,
+        # both of which were removed from current Starlette/FastAPI. Wrapping
+        # the lifespan works across old and new versions and composes with
+        # any lifespan the host app already defines instead of clobbering it.
         async def startup():
             await self.storage.initialize()
 
@@ -140,8 +143,18 @@ class Metrics:
                 except asyncio.CancelledError:
                     pass
 
-        app.add_event_handler("startup", startup)
-        app.add_event_handler("shutdown", shutdown)
+        existing_lifespan = app.router.lifespan_context
+
+        @asynccontextmanager
+        async def lifespan(app: FastAPI):
+            await startup()
+            try:
+                async with existing_lifespan(app) as state:
+                    yield state
+            finally:
+                await shutdown()
+
+        app.router.lifespan_context = lifespan
 
         # Register metrics endpoints
         self._register_endpoints()
