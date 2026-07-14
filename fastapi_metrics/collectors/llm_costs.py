@@ -2,7 +2,6 @@
 
 from typing import Any
 
-
 # Pricing per 1M tokens (updated 2025)
 OPENAI_PRICING = {
     # GPT-4.5

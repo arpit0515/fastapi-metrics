@@ -3,7 +3,7 @@ FastAPI Metrics - Complete metrics solution for FastAPI apps
 Features: SQLite/Redis storage, K8s health checks, LLM cost tracking, Prometheus export, Alerting
 """
 
-__version__ = "0.3.13"
+__version__ = "0.4.0"
 
 from .core import Metrics
 from .storage.base import StorageBackend

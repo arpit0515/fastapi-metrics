@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fastapi-metrics"
-version = "0.3.13"
+version = "0.4.0"
 description = "Zero-config metrics for FastAPI apps - perfect for solo devs and MVPs"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -22,14 +22,12 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Framework :: FastAPI",
 ]
 
 dependencies = [
-    "aioboto3>=11.0.0",
-    "asyncpg>=0.27.0",
-    "rich>=13.0.0",
-    "uvicorn>=0.22.0",
     "fastapi>=0.100.0",
     "pydantic>=2.0.0",
     "aiosqlite>=0.19.0",
@@ -37,11 +35,23 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = [
-    "aioboto3>=11.0.0",
+redis = ["redis>=4.0.0"]
+postgres = ["asyncpg>=0.27.0"]
+dynamodb = ["aioboto3>=11.0.0"]
+alerts = ["httpx>=0.24.0"]
+cli = ["rich>=13.0.0", "uvicorn>=0.22.0"]
+mcp = ["mcp>=1.0.0", "httpx>=0.24.0"]
+all = [
+    "redis>=4.0.0",
     "asyncpg>=0.27.0",
+    "aioboto3>=11.0.0",
+    "httpx>=0.24.0",
     "rich>=13.0.0",
     "uvicorn>=0.22.0",
+    "mcp>=1.0.0",
+]
+dev = [
+    "fastapi-metrics[all]",
     "pytest>=7.4.0",
     "pytest-asyncio>=0.21.0",
     "httpx>=0.24.0",
@@ -52,6 +62,7 @@ dev = [
 [project.scripts]
 fastapi-metrics = "fastapi_metrics.cli_query:main"
 fastapi-metrics-setup = "fastapi_metrics.cli:run_cli"
+fastapi-metrics-mcp = "fastapi_metrics.mcp_server:main"
 
 [project.urls]
 Homepage = "https://github.com/arpit0515/fastapi-metrics"
@@ -65,7 +76,9 @@ include = ["fastapi_metrics*"]
 [tool.black]
 line-length = 100
 target-version = ['py38']
+extend-exclude = '/\._'
 
 [tool.ruff]
 line-length = 100
 target-version = "py38"
+extend-exclude = ["._*"]

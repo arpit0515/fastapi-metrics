@@ -18,13 +18,19 @@ async def redis_store():
         await storage.initialize()
         # Flush the test database before each test
         await storage.client.flushdb()
-        yield storage
     except Exception as e:  # pylint: disable=W0718
         pytest.skip(f"Redis not available: {e}")
+
+    try:
+        yield storage
     finally:
-        # Cleanup
+        # Cleanup - swallow errors here so a mid-test connection drop can't
+        # mask the actual test failure/skip with an unrelated cleanup error.
         if storage.client:
-            await storage.client.flushdb()
+            try:
+                await storage.client.flushdb()
+            except Exception:  # pylint: disable=W0718
+                pass
             await storage.close()
 
 

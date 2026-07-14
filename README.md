@@ -1,313 +1,187 @@
-# FastAPI Metrics - Project Specification
+# FastAPI Metrics
 
-## Project Vision
-Zero-config metrics and observability for FastAPI apps targeting indie devs, startups, and no-code platforms. No Prometheus/Grafana infrastructure required.
+[![PyPI version](https://img.shields.io/pypi/v/fastapi-metrics.svg)](https://pypi.org/project/fastapi-metrics/)
+[![CI](https://github.com/arpit0515/fastapi-metrics/actions/workflows/ci.yml/badge.svg)](https://github.com/arpit0515/fastapi-metrics/actions/workflows/ci.yml)
+[![Python versions](https://img.shields.io/pypi/pyversions/fastapi-metrics.svg)](https://pypi.org/project/fastapi-metrics/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## Core Value Proposition
-- **5-minute setup**: One import, one line of code
-- **No infrastructure**: SQLite/memory storage, no containers
-- **Business metrics**: Track revenue, users, features - not just HTTP metrics
-- **Query API**: JSON endpoints for custom dashboards
-- **Cost tracking**: Auto-detect OpenAI/Anthropic API costs
-- **No-code ready**: Retool/Bubble can consume the API directly
+**Zero-config metrics and observability for FastAPI apps.** No Prometheus. No Grafana. No containers required — just one line of code.
 
----
-
-## Target Users
-1. Indie developers building MVPs
-2. Early-stage startups (pre-Series A)
-3. No-code platform backends (Bubble, Retool, Make.com)
-4. Developers prototyping without DevOps resources
-
----
-
-## Technical Architecture
-
-### Package Structure
-```
-fastapi-metrics/
-├── fastapi_metrics/
-│   ├── __init__.py
-│   ├── core.py              # Main Metrics class
-│   ├── middleware.py        # Request tracking middleware
-│   ├── storage/
-│   │   ├── base.py          # Storage interface
-│   │   ├── memory.py        # In-memory storage
-│   │   ├── sqlite.py        # SQLite storage
-│   │   └── redis.py         # Redis storage (optional)
-│   ├── collectors/
-│   │   ├── http.py          # HTTP request metrics
-│   │   ├── system.py        # CPU, memory, disk
-│   │   ├── business.py      # Custom business metrics
-│   │   └── cost.py          # LLM API cost tracking
-│   ├── health/
-│   │   ├── checks.py        # Health check implementations
-│   │   └── endpoints.py     # Health endpoints
-│   ├── query.py             # Metrics query engine
-│   └── exporters/
-│       ├── json.py          # JSON export
-│       ├── prometheus.py    # Prometheus format
-│       └── csv.py           # CSV export
-├── tests/
-├── examples/
-├── docs/
-└── pyproject.toml
+```bash
+pip install fastapi-metrics
 ```
 
----
-
-## Phase 1: Core Functionality ⏳
-
-### 1.1 Basic Setup & Middleware
-- ✅ Main `Metrics` class initialization
-- ✅ FastAPI app integration
-- ✅ Request tracking middleware
-- ✅ Response time calculation
-- ✅ Status code tracking
-
-### 1.2 Storage Backends
-- ✅ Abstract storage interface
-- ✅ In-memory storage (dict-based)
-- ✅ SQLite storage with tables:
-  - `http_requests` (timestamp, endpoint, method, status, latency_ms)
-  - `custom_metrics` (timestamp, metric_name, value, labels)
-  - `system_metrics` (timestamp, cpu, memory, disk)
-
-### 1.3 HTTP Metrics Collection
-- ✅ Requests per endpoint
-- ✅ Requests per status code
-- ✅ Requests per method
-- ✅ Latency percentiles (p50, p95, p99)
-- ✅ Error rate calculation
-- ✅ Active requests counter
-
-### 1.4 Query API Endpoints
-- ✅ `GET /metrics` - Current snapshot (JSON)
-- ✅ `GET /metrics/query` - Time-series queries
-  - Query params: `from`, `to`, `metric`, `group_by`, `endpoint`
-- ✅ `GET /metrics/endpoints` - Per-endpoint stats
-- ✅ `GET /metrics/export?format=csv|prometheus`
-
----
-
-## Phase 2: Health Checks & System Metrics ⏳
-
-### 2.1 Health Check System
-- ✅ Health check base class
-- ✅ Built-in checks:
-  - ✅ Database connectivity
-  - ✅ Redis connectivity
-  - ✅ Disk space
-  - ✅ Memory usage
-  - ✅ Custom check support
-- ✅ Health endpoints:
-  - ✅ `GET /health` - Simple status
-  - ✅ `GET /health/live` - Liveness probe
-  - ✅ `GET /health/ready` - Readiness probe with checks
-
-### 2.2 System Metrics
-- ✅ CPU usage tracking
-- ✅ Memory usage tracking
-- ✅ Disk usage tracking
-- ✅ Uptime tracking
-- ✅ System metrics endpoint
-
-### 2.3 Additional
-- ✅Make Redis storage first-class (not optional)
-- ✅ Add proper K8s health checks (Phase 2 should be Phase 1)
-- ✅ Add deployment examples for multi-instance setups
-- ✅ Position as "lightweight alternative to Prometheus that scales"
-
----
-
-## Phase 3: Business Metrics & Cost Tracking ⏳
-
-### 3.1 Custom Business Metrics
-- ✅ `metrics.track(name, value, **labels)` API
-- ✅ Counter metrics
-- ✅ Gauge metrics
-- ✅ Histogram metrics
-- ✅ Label/tag support for segmentation
-
-### 3.2 LLM Cost Tracking
-- ✅ Auto-detect OpenAI API calls
-- ✅ Auto-detect Anthropic API calls
-- ✅ Token usage tracking
-- ✅ Cost calculation (using current pricing)
-- ✅ Cost by model/endpoint
-- ✅ `GET /metrics/costs` endpoint
-
----
-
-## Phase 4: Advanced Features ⏳
-
-### 4.1 Retention & Cleanup
-- [ ] Configurable retention period
-- [ ] Automatic data cleanup job
-- [ ] Aggregation for old data (hourly → daily)
-
-### 4.2 Alerting (Simple)
-- [ ] Threshold-based alerts
-- [ ] Webhook notifications
-- [ ] Email notifications (optional)
-
-### 4.3 Export Formats
-- [ ] Prometheus format
-- [ ] CSV export
-- [ ] JSON export with timestamps
-
-
----
-
-## Phase 5: Documentation & Examples ⏳
-
-### 5.1 Documentation
-- [ ] README with quick start
-- [ ] Full API documentation
-- [ ] Configuration guide
-- [ ] Storage backend comparison
-- [ ] Kubernetes deployment guide
-
-### 5.2 Examples
-- [ ] Basic FastAPI app
-- [ ] With database health checks
-- [ ] Custom business metrics
-- [ ] LLM cost tracking
-- [ ] Retool integration example
-- [ ] No-code tool integration guide
-
-### 5.3 Testing
-- [ ] Unit tests (80%+ coverage)
-- [ ] Integration tests
-- [ ] Performance benchmarks
-
----
-
-## API Design (MVP)
-
-### Basic Usage
 ```python
 from fastapi import FastAPI
 from fastapi_metrics import Metrics
 
 app = FastAPI()
+metrics = Metrics(app, storage="sqlite://metrics.db")
 
-# Minimal setup
-metrics = Metrics(
-    app,
-    storage="sqlite://metrics.db",  # or "memory://"
-    retention_hours=24,
-)
-
-# Track custom metrics anywhere
 @app.post("/payment")
-def payment(amount: float, user_id: int):
-    metrics.track("revenue", amount, user_id=user_id)
-    metrics.track("payment_count", 1)
+async def payment(amount: float, user_id: int):
+    await metrics.track("revenue", amount, user_id=user_id)
     return {"status": "ok"}
 ```
 
-### Query Examples
-```
-GET /metrics
-GET /metrics/query?metric=revenue&from=24h&group_by=hour
-GET /metrics/endpoints
-GET /metrics/costs
-GET /health/ready
-```
+That's it. Your app now has HTTP request tracking, a JSON query API, and automatic data retention — no infrastructure to run.
 
----
+## What's included
 
-## Key Decisions
+- **HTTP metrics** — latency (p50/p95/p99), status codes, error rate, active requests, per-endpoint stats — collected automatically for every request.
+- **Custom business metrics** — `await metrics.track("revenue", 99.99, plan="pro")` for anything you care about (signups, revenue, feature usage).
+- **Storage backends** — in-memory, SQLite (default, zero setup), Redis, PostgreSQL, and DynamoDB, so you can start local and grow into a multi-instance deployment without changing your code.
+- **Kubernetes-ready health checks** — `/health`, `/health/live`, `/health/ready`, with built-in disk/memory/database/Redis checks.
+- **LLM cost tracking** — auto-priced token accounting for OpenAI, Anthropic, and Gemini calls.
+- **Threshold-based alerting** — webhook notifications when a metric crosses a threshold.
+- **Prometheus export** — `/metrics/export/prometheus` if you outgrow the JSON API and want to feed a real Prometheus/Grafana stack.
+- **AI-agent friendly** — ships an MCP server so coding agents (Claude Code, Cursor, etc.) know this library exists and can query a running app's metrics directly. See [Use with AI coding agents](#use-with-ai-coding-agents-mcp) below.
 
-### Storage Strategy
-- **Default**: SQLite (single file, no setup)
-- **Optional**: Redis (for distributed systems)
-- **Fallback**: In-memory (testing/development)
+## Storage options
 
-### Data Model
-- Store raw events initially
-- Aggregate on query (Phase 1)
-- Pre-aggregate for performance (Phase 4)
-
-### Performance
-- Async middleware (non-blocking)
-- Background workers for aggregation
-- Configurable batch writes
-- Query result caching
-
----
-
-## Success Metrics
-- [ ] < 5 lines of code to set up
-- [ ] < 1ms overhead per request
-- [ ] Works with SQLite (no external deps)
-- [ ] Query API returns in < 100ms
-- [ ] Retool/Bubble integration works out-of-box
-
----
-
-## Non-Goals (v1)
-- ❌ Replace Prometheus/Grafana for large scale
-- ❌ Distributed tracing
-- ❌ Log aggregation
-- ❌ APM-level profiling
-- ❌ Built-in UI (JSON API only)
-
----
-
-## Dependencies (Keep Minimal)
-```toml
-[dependencies]
-fastapi = ">=0.100.0"
-pydantic = ">=2.0.0"
-aiosqlite = ">=0.19.0"  # Async SQLite
-psutil = ">=5.9.0"      # System metrics
-httpx = ">=0.24.0"      # For health checks (optional)
+```python
+Metrics(app, storage="memory://")                 # testing/dev, nothing persisted
+Metrics(app, storage="sqlite://metrics.db")        # recommended default, single file
+Metrics(app, storage="redis://localhost:6379/0")   # multi-instance / distributed deployments
+Metrics(app, storage="postgresql://user:pass@host/db")
+Metrics(app, storage="dynamodb://table_name?region=us-east-1")
 ```
 
----
+Redis/Postgres/DynamoDB need their client library installed — install with the matching extra:
 
-## Progress Tracker
-
-### ✅ Completed
-- Phase 1: Core functionality
-- Phase 2: Health checks
-- Phase 3: Business metrics
-- Phase 4: Advanced features
-
-
-### 🚧 In Progress
-- Phase 5: Documentation
-
-### ⏳ Todo
-- Phase 6: Additional Features 
----
-
-## Quick Start Command (Future)
 ```bash
-pip install fastapi-metrics
+pip install fastapi-metrics[redis]
+pip install fastapi-metrics[postgres]
+pip install fastapi-metrics[dynamodb]
+pip install fastapi-metrics[all]       # everything
 ```
 
-## Development Setup (Future)
+## Configuration
+
+```python
+metrics = Metrics(
+    app,
+    storage="sqlite://metrics.db",
+    retention_hours=24,               # how long to keep data
+    enable_cleanup=True,              # auto-delete data older than retention_hours
+    enable_health_checks=False,       # registers /health, /health/live, /health/ready
+    enable_system_metrics=False,      # registers /metrics/system (CPU/memory/disk)
+    enable_error_tracking=True,       # log exceptions to /metrics/errors
+    alert_webhook_url=None,           # webhook to POST to when an alert threshold trips
+    exclude_paths=None,               # paths to skip tracking; defaults to ["/docs", "/openapi.json", "/redoc"]
+)
+```
+
+## Built-in API endpoints
+
+Once `Metrics(app, ...)` is wired up, your app automatically exposes:
+
+| Endpoint | Description |
+|---|---|
+| `GET /metrics` | Current snapshot (request counts, latency percentiles, error rate) |
+| `GET /metrics/query` | Time-series queries — `?metric_type=http\|custom&from_hours=24&group_by=hour&endpoint=...` |
+| `GET /metrics/endpoints` | Per-endpoint aggregated stats (count, avg/min/max latency, error rate) |
+| `POST /metrics/cleanup` | Manually trigger retention cleanup |
+| `GET /metrics/costs` | LLM API cost totals, broken down by provider/model |
+| `GET /metrics/errors` | Recent tracked exceptions |
+| `GET /metrics/export/prometheus` | Prometheus text-format export |
+| `GET /metrics/system` | CPU/memory/disk (if `enable_system_metrics=True`) |
+| `GET /health`, `/health/live`, `/health/ready` | Kubernetes probes (if `enable_health_checks=True`) |
+
+These return plain JSON, so tools like Retool, Bubble, or a hand-rolled dashboard can consume them directly:
+
+```javascript
+fetch('/metrics/query?metric_type=custom&name=revenue&group_by=hour&from_hours=24')
+  .then(r => r.json())
+  .then(data => renderChart(data.results));
+```
+
+## Tracking custom metrics
+
+```python
+await metrics.track("revenue", 99.99, user_id=123, plan="pro")
+await metrics.track("signups", 1, source="organic")
+await metrics.track("api_calls", 1, endpoint="/search")
+```
+
+## LLM cost tracking
+
+```python
+await metrics.llm_costs.track_openai_call("gpt-4o", input_tokens=512, output_tokens=128, endpoint="/chat")
+await metrics.llm_costs.track_anthropic_call("claude-sonnet-4", input_tokens=800, output_tokens=200)
+await metrics.llm_costs.track_gemini_call("gemini-2.0-flash", input_tokens=300, output_tokens=90)
+```
+
+Then query `GET /metrics/costs` for totals by provider and model. Pricing tables live in `fastapi_metrics/collectors/llm_costs.py` — update them there if pricing changes.
+
+## Alerting
+
+```python
+from fastapi_metrics import Alert
+
+metrics = Metrics(app, storage="sqlite://metrics.db", alert_webhook_url="https://hooks.example.com/alert")
+metrics.alert_manager.add_alert(
+    Alert(name="high_error_rate", metric_name="error_rate", metric_type="http", threshold=0.05, comparison=">")
+)
+```
+
+## CLI tools
+
 ```bash
-git clone https://github.com/yourusername/fastapi-metrics
+pip install fastapi-metrics[cli]
+fastapi-metrics-setup   # interactive setup wizard
+fastapi-metrics         # query metrics from the command line
+```
+
+## Use with AI coding agents (MCP)
+
+```bash
+pip install fastapi-metrics[mcp]
+```
+
+Add to your MCP client config (e.g. Claude Code's `.mcp.json`, Claude Desktop's config, or Cursor's MCP settings):
+
+```json
+{
+  "mcpServers": {
+    "fastapi-metrics": {
+      "command": "fastapi-metrics-mcp"
+    }
+  }
+}
+```
+
+This gives the agent:
+
+- **Reference tools** (no network needed) — `quickstart`, `config_reference`, `storage_backends`, `available_endpoints` — so it knows this library exists and wires it up correctly instead of reaching for something heavier.
+- **Live tools** — `get_snapshot`, `query_metrics`, `endpoint_stats`, `check_health` — each takes a `base_url` and calls the JSON endpoints above against a *running* app, so the agent can answer "why did latency spike" or "is this deploy healthy" during a coding session without you copy-pasting curl output.
+
+## Requirements
+
+- Python 3.8+
+- FastAPI 0.100.0+
+
+## Development
+
+```bash
+git clone https://github.com/arpit0515/fastapi-metrics
 cd fastapi-metrics
-poetry install
-poetry run pytest
+pip install -e ".[dev]"
+pytest
 ```
 
----
+See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the project's internal design notes and future plans, and [`CHANGELOG.md`](CHANGELOG.md) for release history.
 
-## Notes & Decisions Log
-- 2025-12-10: Initial spec created
-- Target: Indie devs who want metrics without infrastructure
-- Focus: Simplicity over enterprise features
-- SQLite as default storage for zero-config experience
+## Not designed for
 
----
+- Distributed tracing or log aggregation
+- APM-level profiling
+- Replacing Prometheus/Grafana at large scale (though the Prometheus export endpoint lets you bridge into that world when you outgrow this)
 
-![Check errors in terminal](image.png)
+## Contributing
 
+Contributions welcome — this is an early-stage project focused on staying simple. Open an issue or PR at [github.com/arpit0515/fastapi-metrics](https://github.com/arpit0515/fastapi-metrics).
 
-![Check status of app](image-1.png)
+## License
+
+MIT — see [LICENSE](LICENSE).
